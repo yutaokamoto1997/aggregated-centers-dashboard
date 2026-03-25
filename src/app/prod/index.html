@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <base target="_top">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大型拠点ダッシュボード</title>
+    <style>
+        /* --- 1. ベーススタイル --- */
+        * { box-sizing: border-box; }
+        body { 
+            font-family: "Inter", "Noto Sans JP", sans-serif; 
+            background-color: #f7fafc; 
+            margin: 0; 
+            color: #111827;
+        }
+        
+        /* --- 2. レイアウト用ユーティリティ --- */
+        .flex { display: flex; }
+        .flex-wrap { flex-wrap: wrap; }
+        .flex-col { flex-direction: column; }
+        .items-center { align-items: center; }
+        .items-start { align-items: flex-start; }
+        .justify-between { justify-content: space-between; }
+        .justify-end { justify-content: flex-end; }
+        .justify-center { justify-content: center; }
+        .space-x-2 > * + * { margin-left: 0.5rem; }
+        .space-y-1 > * + * { margin-top: 0.25rem; }
+        .flex-shrink-0 { flex-shrink: 0; }
+        
+        /* グリッド */
+        .grid { display: grid; }
+        .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+        .gap-6 { gap: 1.5rem; }
+        .gap-4 { gap: 1rem; }
+
+        /* レスポンシブ (md: 768px以上) */
+        @media (min-width: 768px) {
+            .md\:p-6 { padding: 1.5rem; }
+            .md\:grid-cols-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+            .md\:col-span-3 { grid-column: span 3 / span 3; }
+            .md\:col-span-2 { grid-column: span 2 / span 2; }
+        }
+
+        /* 表示制御 */
+        .hidden { display: none; }
+        .block { display: block; }
+        .inline-block { display: inline-block; }
+        .overflow-auto { overflow: auto; }
+        .overflow-y-auto { overflow-y: auto; }
+        .overflow-x-auto { overflow-x: auto; }
+        .sticky { position: sticky; }
+        .top-0 { top: 0; }
+        .z-10 { z-index: 10; }
+        .z-5 { z-index: 5; }
+
+        /* --- 3. サイズ・余白 --- */
+        .w-full { width: 100%; }
+        .w-auto { width: auto; }
+        .h-full { height: 100%; }
+        .max-w-95 { max-width: 95%; }
+        .mx-auto { margin-left: auto; margin-right: auto; }
+        .mb-6 { margin-bottom: 1.5rem; }
+        .mt-4 { margin-top: 1rem; }
+        .mt-2 { margin-top: 0.5rem; }
+        .ml-2 { margin-left: 0.5rem; }
+        .ml-1 { margin-left: 0.25rem; }
+        .mr-2 { margin-right: 0.5rem; }
+        .p-4 { padding: 1rem; }
+        .p-2\.5 { padding: 0.625rem; }
+        .px-4 { padding-left: 1rem; padding-right: 1rem; }
+        .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+        .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
+        .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+        .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+        .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+        .py-0\.5 { padding-top: 0.125rem; padding-bottom: 0.125rem; }
+        .max-h-48 { max-height: 12rem; }
+        .max-h-\[80vh\] { max-height: 80vh; }
+
+        /* 固定幅クラス */
+        .w-12 { width: 3rem; }
+        .w-16 { width: 4rem; }
+        .w-20 { width: 5rem; }
+        .w-24 { width: 6rem; }
+        .w-28 { width: 7rem; }
+        
+        /* ★修正: 拠点名用の10文字幅(10rem)クラスを追加 */
+        .w-40 { width: 10rem; } 
+        .max-w-40 { max-width: 10rem; }
+        .w-48 { width: 12rem; }
+        .w-60 { width: 15rem; }
+        .w-64 { width: 16rem; }
+        
+        .min-w-header { min-width: 10.5rem; } 
+
+        /* --- 4. テキスト・フォント --- */
+        .text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+        .text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+        .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+        .text-xs { font-size: 0.75rem; line-height: 1rem; }
+        .font-bold { font-weight: 700; }
+        .font-semibold { font-weight: 600; }
+        .font-medium { font-weight: 500; }
+        .uppercase { text-transform: uppercase; }
+        
+        /* ★修正: 省略表示用のクラスを追加 */
+        .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        
+        .whitespace-nowrap { white-space: nowrap; }
+        .whitespace-pre-wrap { white-space: pre-wrap; }
+        
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .text-left { text-align: left; }
+
+        .text-white { color: #ffffff; }
+        .text-gray-900 { color: #000000; }
+        .text-gray-800 { color: #1f2937; }
+        .text-gray-700 { color: #111827; }
+        .text-gray-600 { color: #374151; }
+        .text-gray-500 { color: #333333; }
+        
+        .text-blue-600 { color: #2563eb; }
+        .text-blue-500 { color: #3b82f6; }
+        .text-red-600 { color: #dc2626; }
+        .text-orange-800 { color: #9a3412; }
+        .text-purple-800 { color: #6b21a8; }
+        
+        .hover\:text-blue-800:hover { color: #1e40af; }
+
+        /* --- 5. 背景・ボーダー --- */
+        .bg-white { background-color: #ffffff; }
+        .bg-gray-50 { background-color: #f9fafb; }
+        .bg-gray-100 { background-color: #f3f4f6; }
+        .bg-blue-50 { background-color: #eff6ff; }
+        .bg-blue-500 { background-color: #3b82f6; }
+        .bg-red-50 { background-color: #fef2f2; }
+        .bg-orange-50 { background-color: #fff7ed; }
+        .bg-green-100 { background-color: #dcfce7; }
+        .bg-purple-50 { background-color: #faf5ff; }
+
+        .text-green-600 { color: #16a34a; }
+
+        .hover\:bg-gray-50:hover { background-color: #f9fafb; }
+        .hover\:bg-gray-100:hover { background-color: #f3f4f6; }
+        .hover\:bg-blue-600:hover { background-color: #2563eb; }
+        .transition-colors { transition-property: background-color, border-color, color, fill, stroke; transition-duration: 150ms; }
+
+        .border { border-width: 1px; }
+        .border-b { border-bottom-width: 1px; }
+        .border-gray-200 { border-color: #e5e7eb; }
+        .border-gray-300 { border-color: #d1d5db; }
+        .border-red-200 { border-color: #fecaca; }
+        .border-transparent { border-color: transparent; }
+        .hover\:border-gray-200:hover { border-color: #e5e7eb; }
+
+        .rounded-lg { border-radius: 0.5rem; }
+        .rounded-md { border-radius: 0.375rem; }
+        .rounded-t-lg { border-top-left-radius: 0.5rem; border-top-right-radius: 0.5rem; }
+        .rounded { border-radius: 0.25rem; }
+        .shadow-sm { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); }
+
+        /* --- 6. カスタムコンポーネント --- */
+        .table-bar { display: flex; align-items: center; justify-content: flex-end; }
+        .bar-container { flex-grow: 1; background-color: #e5e7eb; border-radius: 0.25rem; height: 1rem; margin-left: 0.5rem; overflow: hidden;}
+        .bar { background-color: #3b82f6; height: 100%; border-radius: 0.25rem; transition: width 0.3s ease; }
+        
+        th { cursor: pointer; white-space: nowrap; user-select: none; }
+        th .sort-icon { display: inline-block; width: 1em; text-align: center; }
+        
+        .expand-btn { 
+            display: inline-flex; align-items: center; justify-content: center; 
+            width: 16px; height: 16px; margin-left: 6px; 
+            background: #f3f4f6; border-radius: 4px; color: #374151; 
+            font-size: 12px; line-height: 1; cursor: pointer;
+            border: 1px solid #d1d5db;
+        }
+        .expand-btn:hover { background: #e5e7eb; }
+
+        .sub-col { font-size: 0.9em; color: #4b5563; }
+        .sub-header { font-weight: 600; font-size: 0.85em; color: #374151; border-bottom-width: 2px; }
+
+        #loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(255, 255, 255, 0.8); display: flex; justify-content: center; align-items: center; z-index: 9999; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #3b82f6; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .tab-button { transition: all 0.2s ease-in-out; border: none; background: none; cursor: pointer; }
+        .tab-button.active { background-color: #2563eb; color: white; font-weight: 600; }
+        
+        select:focus, button:focus { outline: 2px solid #3b82f6; outline-offset: 2px; }
+    </style>
+</head>
+<body class="p-4 md:p-6">
+    <div id="loader"><div class="spinner"></div></div>
+
+    <div class="max-w-95 mx-auto">
+        <header class="mb-6 grid grid-cols-1 md:grid-cols-5 gap-6 items-start">
+            <div class="md:col-span-3">
+                <h1 class="text-3xl font-bold text-gray-800">大型拠点ダッシュボード</h1>
+                
+                <div class="flex items-center space-x-2 mt-4">
+                    <label for="date-selector" class="text-sm font-medium text-gray-700">対象日:</label>
+                    <select id="date-selector" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg block w-auto p-2.5"></select>
+                    <button id="view-button" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-sm border-transparent">表示</button>
+                </div>
+                
+                <div class="mt-2 space-y-1">
+                    <div class="flex items-center gap-4 flex-wrap">
+                        <p id="data-date" class="text-gray-500 text-sm">日付を選択してください</p>
+                        <p id="timee-alert" class="hidden text-red-600 font-bold text-sm bg-red-50 px-2 py-0.5 rounded border border-red-200">
+                            ※ タイミー実績 未反映（0円計算）
+                        </p>
+                    </div>
+                    <p id="cost-data-date" class="text-gray-500 text-sm"></p>
+                    <p id="time-range-display" class="text-gray-500 text-sm"></p>
+                </div>
+            </div>
+            
+            <div class="md:col-span-2 bg-white p-4 rounded-lg shadow-sm max-h-48 overflow-y-auto border border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2 mb-2">集計の解説</h3>
+                <pre id="summary-notes" class="text-sm text-gray-600 whitespace-pre-wrap">解説を読み込んでいます...</pre>
+            </div>
+        </header>
+
+        <div class="mb-6 flex justify-between items-center border-b border-gray-200">
+            <div class="flex space-x-2 overflow-x-auto">
+                <button class="tab-button py-2 px-4 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-t-lg" data-filter="終日">終日</button>
+                <button class="tab-button py-2 px-4 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-t-lg active" data-filter="1便">1便</button>
+                <button class="tab-button py-2 px-4 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-t-lg" data-filter="2便">2便</button>
+                <button class="tab-button py-2 px-4 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-t-lg" data-filter="3便">3便</button>
+                <button class="tab-button py-2 px-4 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-t-lg" data-filter="夜間">夜間</button>
+            </div>
+            <div class="whitespace-nowrap ml-2">
+                <button id="lock-sort-btn" class="text-sm text-blue-600 hover:text-blue-800 font-medium px-3 py-1 rounded-md border border-transparent hover:border-gray-200 bg-white">並び順を固定</button>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-sm overflow-auto max-h-[80vh] border border-gray-200">
+            <table class="w-full text-sm text-left text-gray-500">
+                <thead id="dashboard-thead" class="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0 z-10 shadow-sm">
+                </thead>
+                <tbody id="dashboard-table-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+    window.addEventListener('load', function() {
+        let allData = [];
+        let costDataMap = new Map();
+        
+        let currentFilter = '1便';
+        let currentSort = { key: 'workVolume', direction: 'desc' };
+        let isSortOrderLocked = false;
+        let lockedBaseOrder = [];
+        let pinnedBases = new Set();
+        
+        let expandedColumns = {
+            manHours: true,
+            totalStaffCount: true,
+            totalCost: false
+        };
+
+        const staffTypeMap = { 'YSS': 'ＹＳＳ作業', 'パート': 'パート作業', 'アルバイト': 'アルバイト作業', 'フル': 'フル作業' };
+
+        const timeRangeMap = {
+            '終日': '0:00 ～ 24:00',
+            '1便': '0:00 ～ 10:00',
+            '2便': '10:00 ～ 14:00',
+            '3便': '14:00 ～ 18:00',
+            '夜間': '18:00 ～ 24:00'
+        };
+
+        function showLoader(isLoading) { document.getElementById('loader').style.display = isLoading ? 'flex' : 'none'; }
+        
+        function googleScriptRun(funcName, ...args) {
+            return new Promise((resolve, reject) => {
+                google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[funcName](...args);
+            });
+        }
+
+        async function initializeApp() {
+            try {
+                showLoader(true);
+                const response = await googleScriptRun('getWebAppInitialData');
+                
+                if (response.error) throw new Error(response.error);
+                if (response.summaryNotes) document.getElementById('summary-notes').textContent = response.summaryNotes;
+                
+                populateDateSelector(response.availableDates);
+                if (response.initialData) {
+                    const latestDate = response.availableDates[0];
+                    processAllData(response.initialData, latestDate); 
+                } else {
+                    renderDashboard(); 
+                }
+            } catch (err) {
+                console.error(`初期化エラー: ${err.message}`);
+                document.getElementById('summary-notes').textContent = `エラー: ${err.message}`;
+            } finally {
+                showLoader(false);
+            }
+        }
+
+        function populateDateSelector(dates) {
+            const selector = document.getElementById('date-selector');
+            selector.innerHTML = '';
+            if (!dates || dates.length === 0) {
+                selector.innerHTML = '<option value="" disabled selected>日付なし</option>';
+                document.getElementById('view-button').disabled = true;
+                return;
+            }
+            dates.forEach(dateStr => {
+                const option = document.createElement('option');
+                option.value = dateStr;
+                option.textContent = `${dateStr.slice(0,4)}/${dateStr.slice(5,7)}/${dateStr.slice(8,10)}`;
+                selector.appendChild(option);
+            });
+            document.getElementById('view-button').disabled = false;
+        }
+
+        function processAllData(data, dateString) {
+            if (!data) return;
+            
+            const workVolume = data.workVolumeData || { data: [] };
+            const manpower = data.manpowerData || { data: [] };
+            const cost = data.costData || { data: [] };
+            const timee = data.timeeData || { data: [] };
+            const outsourcing = data.outsourcingData || { data: [] };
+            
+            const isTimeeReflected = data.isTimeeReflected;
+
+            const alertElem = document.getElementById('timee-alert');
+            if (isTimeeReflected) {
+                alertElem.classList.add('hidden');
+            } else {
+                alertElem.classList.remove('hidden');
+            }
+
+            const validBaseCodes = new Set();
+            (workVolume.data || []).forEach(r => {
+                if (r['集約拠点コード']) validBaseCodes.add(r['集約拠点コード']);
+            });
+
+            costDataMap.clear();
+            (cost.data || []).forEach(row => {
+                const baseCode = row['集約拠点コード'];
+                const staffType = row['社員区分名称'];
+                const hourlyWage = parseFloat(row['単純時給']);
+                if (baseCode && staffType && !isNaN(hourlyWage)) {
+                    if (!costDataMap.has(baseCode)) costDataMap.set(baseCode, new Map());
+                    costDataMap.get(baseCode).set(staffType, hourlyWage);
+                }
+            });
+            
+            const aggregatedMap = new Map();
+            const getInitObj = () => ({ manHours: 0, count: 0, cost: 0 });
+            const getEntry = (baseCode, timeSlot) => {
+                const key = `${baseCode}-${timeSlot}`;
+                if (!aggregatedMap.has(key)) {
+                    aggregatedMap.set(key, {
+                        internal: getInitObj(),
+                        timee: getInitObj(),
+                        outsourcing: getInitObj(),
+                        total: getInitObj()
+                    });
+                }
+                return aggregatedMap.get(key);
+            };
+
+            // 1. 自社データ集計
+            (manpower.data || []).forEach(row => {
+                const baseCode = row['集約拠点コード'];
+                const timeSlot = row['時間帯'];
+                const workStaffType = row['社員区分名称'];
+                if (!baseCode || !timeSlot || !workStaffType) return;
+
+                const entry = getEntry(baseCode, timeSlot);
+                const manMinutes = parseFloat(row['投入時間'] || 0);
+                const count = parseInt(row['人員数'] || 0, 10);
+                
+                entry.internal.manHours += manMinutes; 
+                entry.internal.count += count;
+
+                const costStaffType = staffTypeMap[workStaffType];
+                if (costStaffType) {
+                    const hubCosts = costDataMap.get(baseCode);
+                    if (hubCosts && hubCosts.has(costStaffType)) {
+                        entry.internal.cost += (manMinutes / 60) * hubCosts.get(costStaffType);
+                    }
+                }
+            });
+
+            // 2. タイミーデータ集計
+            (timee.data || []).forEach(row => {
+                let baseCode = row['集約拠点コード'];
+                const timeSlot = row['時間帯'];
+                if (!baseCode || !timeSlot) return;
+
+                if (!validBaseCodes.has(baseCode)) {
+                    const noZeroCode = String(Number(baseCode));
+                    if (validBaseCodes.has(noZeroCode)) {
+                        baseCode = noZeroCode;
+                    }
+                }
+
+                const entry = getEntry(baseCode, timeSlot);
+
+                const timeeHours = parseFloat(row['投入時間'] || 0);
+                const timeeMinutes = timeeHours * 60; 
+                const count = parseInt(row['投入人数'] || 0, 10);
+                const directCost = parseFloat(row['合計支払金額'] || 0);
+
+                entry.timee.manHours += timeeMinutes;
+                entry.timee.count += count;
+                entry.timee.cost += directCost;
+            });
+
+            // 3. 外部リソース（派遣・委託）データ集計
+            (outsourcing.data || []).forEach(row => {
+                let baseCode = row['集約拠点コード'];
+                const timeSlot = row['時間帯'];
+                if (!baseCode || !timeSlot) return;
+                
+                // 拠点コードが数値の場合、文字列化して0埋め等のチェックも可能だが
+                // 今回は中間ファイル側で0埋めしている前提。
+                //念のためvalidBaseCodesになければ0埋めチェック
+                if (!validBaseCodes.has(baseCode)) {
+                    const noZeroCode = String(Number(baseCode));
+                    if (validBaseCodes.has(noZeroCode)) {
+                        baseCode = noZeroCode;
+                    }
+                }
+
+                const entry = getEntry(baseCode, timeSlot);
+                
+                const hours = parseFloat(row['投入時間'] || 0);
+                const minutes = hours * 60; 
+                const count = parseInt(row['投入人数'] || 0, 10);
+                const costVal = parseFloat(row['人的コスト'] || 0);
+
+                entry.outsourcing.manHours += minutes;
+                entry.outsourcing.count += count;
+                entry.outsourcing.cost += costVal;
+            });
+
+            // 4. 合計計算 & データ統合（全ソースから拠点リストを作成）
+            // まず作業個数データのマップを作成
+            const workVolumeMap = new Map();
+            (workVolume.data || []).forEach(row => {
+                const key = `${row['集約拠点コード']}-${row['時間帯']}`;
+                workVolumeMap.set(key, {
+                    baseName: row['拠点名称'],
+                    workVolume: parseInt(row['作業個数'] || 0, 10)
+                });
+            });
+
+            // aggregatedMap (コスト/人数側) のキーも全て網羅する
+            const allKeys = new Set([...workVolumeMap.keys(), ...aggregatedMap.keys()]);
+            
+            allData = Array.from(allKeys).map(key => {
+                const [baseCode, timeSlot] = key.split('-');
+                
+                // 作業個数データがあればそれを使う、なければコストデータ側の情報を使う
+                const volData = workVolumeMap.get(key) || { baseName: `(名称不明: ${baseCode})`, workVolume: 0 };
+                // ただし、拠点名称が不明で、他の時間帯で名称が判明している場合は補完できるとなお良いが、
+                // 今回は簡易的に実装。もしworkVolumeMapに名称があれば優先。
+                if (volData.baseName.startsWith('(名称不明')) {
+                     // 同じ拠点コードで名称を持っているものを探す(簡易探索)
+                     const found = (workVolume.data || []).find(r => r['集約拠点コード'] == baseCode);
+                     if (found) volData.baseName = found['拠点名称'];
+                }
+
+                const agg = aggregatedMap.get(key) || {
+                    internal: getInitObj(),
+                    timee: getInitObj(),
+                    outsourcing: getInitObj(),
+                    total: getInitObj()
+                };
+
+                return {
+                    baseCode,
+                    baseName: volData.baseName,
+                    timeSlot,
+                    workVolume: volData.workVolume,
+                    
+                    manHoursDetail: { 
+                        total: agg.total.manHours, 
+                        internal: agg.internal.manHours, 
+                        timee: agg.timee.manHours,
+                        outsourcing: agg.outsourcing.manHours
+                    },
+                    staffCountDetail: { 
+                        total: agg.total.count, 
+                        internal: agg.internal.count, 
+                        timee: agg.timee.count,
+                        outsourcing: agg.outsourcing.count
+                    },
+                    costDetail: { 
+                        total: agg.total.cost, 
+                        internal: agg.internal.cost, 
+                        timee: agg.timee.cost,
+                        outsourcing: agg.outsourcing.cost
+                    },
+                    
+                    manHours: agg.total.manHours,
+                    totalStaffCount: agg.total.count,
+                    totalCost: agg.total.cost,
+                    costPerItem: volData.workVolume > 0 ? agg.total.cost / volData.workVolume : 0
+                };
+            });
+            
+            if (dateString) {
+                const displayDate = `${dateString.slice(0,4)}/${dateString.slice(5,7)}/${dateString.slice(8,10)}`;
+                document.getElementById('data-date').textContent = `データ対象日: ${displayDate}`;
+            }
+            
+            const costDateP = document.getElementById('cost-data-date');
+            const costFileName = cost.fileName;
+            if (costFileName) {
+                const match = costFileName.match(/_(\d{6})\.csv$/);
+                if (match && match[1]) {
+                    costDateP.textContent = `人的コスト参照: ${match[1].substring(0, 4)}年${match[1].substring(4, 6)}月`;
+                } else {
+                    costDateP.textContent = `人的コスト参照ファイル: ${costFileName}`;
+                }
+            } else {
+                costDateP.textContent = '人的コストデータ: なし';
+            }
+
+            updateTimeRangeDisplay(currentFilter);
+            renderDashboard();
+        }
+
+        function updateTimeRangeDisplay(filter) {
+            document.getElementById('time-range-display').textContent = `対象時間帯: ${timeRangeMap[filter] || ''}`;
+        }
+
+        function getFilteredAndSortedData() {
+            let data = allData.filter(d => d.timeSlot === currentFilter);
+            
+            if (isSortOrderLocked && lockedBaseOrder.length > 0) {
+                const orderMap = new Map(lockedBaseOrder.map((code, index) => [code, index]));
+                data.sort((a, b) => (orderMap.has(a.baseCode) ? orderMap.get(a.baseCode) : 9999) - (orderMap.has(b.baseCode) ? orderMap.get(b.baseCode) : 9999));
+            } else {
+                data.sort((a, b) => {
+                    const valA = a[currentSort.key];
+                    const valB = b[currentSort.key];
+                    let compare = (typeof valA === 'string') ? valA.localeCompare(valB, 'ja') : (valA || 0) - (valB || 0);
+                    return currentSort.direction === 'asc' ? compare : -compare;
+                });
+            }
+            return data;
+        }
+
+        function renderDashboard() {
+            const processedData = getFilteredAndSortedData();
+            const finalData = [
+                ...processedData.filter(d => pinnedBases.has(d.baseCode)),
+                ...processedData.filter(d => !pinnedBases.has(d.baseCode))
+            ];
+            
+            renderTableHeader(); 
+            renderTableBody(finalData);
+        }
+
+        function renderTableHeader() {
+            const thead = document.getElementById('dashboard-thead');
+            
+            const createHeader = (label, key, widthClass, expandableKey = null) => {
+                let sortIcon = '';
+                if (currentSort.key === key) {
+                    sortIcon = currentSort.direction === 'asc' ? '▲' : '▼';
+                }
+                
+                let expandBtn = '';
+                if (expandableKey) {
+                    const isExpanded = expandedColumns[expandableKey];
+                    expandBtn = `<span class="expand-btn" data-target="${expandableKey}">${isExpanded ? '−' : '＋'}</span>`;
+                }
+
+                let html = `<th scope="col" class="px-4 py-3 ${widthClass}" data-sort-key="${key}">
+                    ${label}<span class="sort-icon ml-1 text-xs">${sortIcon}</span>${expandBtn}
+                </th>`;
+                
+                if (expandableKey && expandedColumns[expandableKey]) {
+                    let subColWidthClass = 'w-24'; 
+                    if (expandableKey === 'manHours' || expandableKey === 'totalStaffCount') {
+                        subColWidthClass = 'w-16'; 
+                    }
+                    html += `<th class="px-2 py-3 ${subColWidthClass} sub-header bg-gray-100 text-center">自社</th>`;
+                    html += `<th class="px-2 py-3 ${subColWidthClass} sub-header bg-orange-50 text-center">タイミー</th>`;
+                    html += `<th class="px-2 py-3 ${subColWidthClass} sub-header bg-purple-50 text-center">派遣･委託</th>`;
+                }
+                return html;
+            };
+
+            thead.innerHTML = `
+                <tr>
+                    <th scope="col" class="px-4 py-3 w-12 text-center">固定</th>
+                    ${createHeader('拠点コード', 'baseCode', 'w-28')}
+                    ${createHeader('拠点名', 'baseName', 'w-40 text-left')}
+                    ${createHeader('作業個数', 'workVolume', 'min-w-header text-right')}
+                    ${createHeader('投入時間(H)', 'manHours', 'min-w-header text-right', 'manHours')}
+                    ${createHeader('投入人数', 'totalStaffCount', 'min-w-header text-right', 'totalStaffCount')}
+                    ${createHeader('人的コスト', 'totalCost', 'min-w-header text-right', 'totalCost')}
+                    ${createHeader('個当たり', 'costPerItem', 'min-w-header text-right')}
+                </tr>
+            `;
+
+            thead.querySelectorAll('th[data-sort-key]').forEach(th => {
+                th.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('expand-btn')) return;
+                    
+                    const key = th.dataset.sortKey;
+                    const defaultDir = (key === 'baseCode' || key === 'baseName') ? 'asc' : 'desc';
+                    if (currentSort.key === key) {
+                        currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        currentSort.key = key;
+                        currentSort.direction = defaultDir;
+                    }
+                    isSortOrderLocked = false;
+                    updateLockBtnState();
+                    renderDashboard();
+                });
+            });
+
+            thead.querySelectorAll('.expand-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation(); 
+                    const target = btn.dataset.target;
+                    expandedColumns[target] = !expandedColumns[target];
+                    renderDashboard(); 
+                });
+            });
+        }
+
+        function renderTableBody(data) {
+            const tableBody = document.getElementById('dashboard-table-body');
+            tableBody.innerHTML = '';
+            
+            if (data.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="15" class="text-center p-8 text-gray-500">データがありません。</td></tr>';
+                return;
+            }
+
+            const maxValues = {
+                workVolume: Math.max(1, ...data.map(d => d.workVolume)),
+                manHours: Math.max(1, ...data.map(d => d.manHoursDetail.total)),
+                totalStaffCount: Math.max(1, ...data.map(d => d.staffCountDetail.total)),
+                totalCost: Math.max(1, ...data.map(d => d.costDetail.total)),
+                costPerItem: Math.max(1, ...data.map(d => d.costPerItem)),
+            };
+
+            const fragment = document.createDocumentFragment();
+            const headerHeight = document.querySelector('thead').offsetHeight;
+
+            data.forEach(d => {
+                const row = document.createElement('tr');
+                const isPinned = pinnedBases.has(d.baseCode);
+                row.className = `bg-white border-b hover:bg-gray-50 transition-colors ${isPinned ? 'bg-blue-50 sticky z-5' : ''}`;
+                if (isPinned) row.style.top = `${headerHeight}px`;
+
+                const addCell = (html, align='right', classes='', title='') => {
+                    const td = document.createElement('td');
+                    td.className = `px-4 py-2 text-${align} ${classes}`;
+                    td.innerHTML = html;
+                    if(title) td.title = title;
+                    row.appendChild(td);
+                };
+                
+                const checkboxCell = document.createElement('td');
+                checkboxCell.className = 'px-4 py-2 text-center w-12';
+                checkboxCell.innerHTML = `<input type="checkbox" class="pin-checkbox" data-base-code="${d.baseCode}" ${isPinned ? 'checked' : ''}>`;
+                row.appendChild(checkboxCell);
+
+                addCell(d.baseCode, 'left');
+                // ★修正: 拠点名に最大幅と省略表示クラスを適用、ツールチップ設定
+                addCell(d.baseName, 'left', 'max-w-40 truncate', d.baseName);
+                
+                addCell(createBarCell(d.workVolume, maxValues.workVolume, 0, 'w-24'));
+
+                addDynamicColumns(row, d.manHoursDetail, maxValues.manHours, 'manHours', 1, true, 'w-20');
+                addDynamicColumns(row, d.staffCountDetail, maxValues.totalStaffCount, 'totalStaffCount', 0, false, 'w-16');
+                addDynamicColumns(row, d.costDetail, maxValues.totalCost, 'totalCost', 0, false, 'w-24');
+
+                addCell(createBarCell(d.costPerItem, maxValues.costPerItem, 1, 'w-24'));
+
+                fragment.appendChild(row);
+            });
+            tableBody.appendChild(fragment);
+        }
+
+        function addDynamicColumns(row, values, maxValue, key, precision, isTime, valueWidthClass = 'w-24') {
+            const valTotal = isTime ? values.total / 60 : values.total;
+            const valInternal = isTime ? values.internal / 60 : values.internal;
+            const valTimee = isTime ? values.timee / 60 : values.timee;
+            const valOutsourcing = isTime ? values.outsourcing / 60 : values.outsourcing;
+            
+            const maxVal = isTime ? maxValue / 60 : maxValue;
+
+            const createTd = (html, bgClass='') => {
+                const td = document.createElement('td');
+                td.className = `px-4 py-2 text-right ${bgClass}`;
+                td.innerHTML = html;
+                row.appendChild(td);
+            };
+
+            createTd(createBarCell(valTotal, maxVal, precision, valueWidthClass));
+
+            if (expandedColumns[key]) {
+                createTd(formatNum(valInternal, precision), 'bg-gray-50 sub-col text-gray-600');
+                createTd(formatNum(valTimee, precision), 'bg-orange-50 sub-col text-orange-800 font-medium');
+                createTd(formatNum(valOutsourcing, precision), 'bg-purple-50 sub-col text-purple-800 font-medium');
+            }
+        }
+
+        function formatNum(val, precision) {
+             return val.toLocaleString(undefined, { minimumFractionDigits: precision, maximumFractionDigits: precision });
+        }
+
+        function createBarCell(value, maxValue, precision, valueWidthClass = 'w-24') {
+            const val = value || 0;
+            const formatted = formatNum(val, precision);
+            const width = maxValue > 0 ? Math.min((val / maxValue) * 100, 100) : 0;
+            return `<div class="table-bar"><span class="${valueWidthClass} text-right mr-2 flex-shrink-0">${formatted}</span><div class="bar-container"><div class="bar" style="width: ${width}%;"></div></div></div>`;
+        }
+
+        function updateLockBtnState() {
+            const btn = document.getElementById('lock-sort-btn');
+            if (isSortOrderLocked) {
+                btn.textContent = '並び順固定中';
+                btn.classList.replace('text-blue-600', 'text-green-600');
+                btn.classList.add('bg-green-100');
+            } else {
+                btn.textContent = '並び順を固定';
+                btn.classList.replace('text-green-600', 'text-blue-600');
+                btn.classList.remove('bg-green-100');
+            }
+        }
+
+        document.getElementById('view-button').addEventListener('click', async () => {
+            const selectedDate = document.getElementById('date-selector').value;
+            if (!selectedDate) return;
+            try {
+                showLoader(true);
+                const data = await googleScriptRun('getDataForDate', selectedDate);
+                processAllData(data, selectedDate);
+            } catch (err) {
+                console.error(err);
+                alert('データ取得失敗: ' + err.message);
+            } finally {
+                showLoader(false);
+            }
+        });
+
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.addEventListener('click', () => {
+                document.querySelector('.tab-button.active').classList.remove('active');
+                button.classList.add('active');
+                currentFilter = button.dataset.filter;
+                updateTimeRangeDisplay(currentFilter);
+                renderDashboard();
+            });
+        });
+
+        document.getElementById('lock-sort-btn').addEventListener('click', (e) => {
+            isSortOrderLocked = !isSortOrderLocked;
+            if (isSortOrderLocked) {
+                lockedBaseOrder = getFilteredAndSortedData().map(d => d.baseCode);
+            }
+            updateLockBtnState();
+            renderDashboard();
+        });
+
+        document.getElementById('dashboard-table-body').addEventListener('change', (e) => {
+            if (e.target.classList.contains('pin-checkbox')) {
+                const baseCode = e.target.dataset.baseCode;
+                if (e.target.checked) pinnedBases.add(baseCode);
+                else pinnedBases.delete(baseCode);
+                renderDashboard();
+            }
+        });
+
+        initializeApp();
+    });
+    </script>
+</body>
+</html>

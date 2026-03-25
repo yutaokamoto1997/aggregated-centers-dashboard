@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <base target="_top">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大型拠点ダッシュボード</title>
+    <style>
+        /* --- 1. ベーススタイル --- */
+        * { box-sizing: border-box; }
+        body { font-family: "Inter", "Noto Sans JP", sans-serif; background-color: #f7fafc; margin: 0; color: #111827; }
+        
+        /* --- 2. レイアウト用ユーティリティ --- */
+        .flex { display: flex; } .flex-wrap { flex-wrap: wrap; } .flex-col { flex-direction: column; }
+        .items-center { align-items: center; } .items-start { align-items: flex-start; }
+        .justify-between { justify-content: space-between; } .justify-end { justify-content: flex-end; } .justify-center { justify-content: center; }
+        .space-x-2 > * + * { margin-left: 0.5rem; } .space-x-4 > * + * { margin-left: 1rem; } .space-y-1 > * + * { margin-top: 0.25rem; } .flex-shrink-0 { flex-shrink: 0; }
+        
+        .grid { display: grid; } .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); } .gap-6 { gap: 1.5rem; } .gap-4 { gap: 1rem; }
+        @media (min-width: 768px) { .md\:p-6 { padding: 1.5rem; } .md\:grid-cols-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); } .md\:col-span-3 { grid-column: span 3 / span 3; } .md\:col-span-2 { grid-column: span 2 / span 2; } }
+
+        .hidden { display: none !important; } .block { display: block; } .inline-block { display: inline-block; }
+        .overflow-auto { overflow: auto; } .overflow-y-auto { overflow-y: auto; } .overflow-x-auto { overflow-x: auto; }
+        .sticky { position: sticky; } .top-0 { top: 0; } .z-10 { z-index: 10; } .z-5 { z-index: 5; }
+
+        /* --- 3. サイズ・余白 --- */
+        .w-full { width: 100%; } .w-auto { width: auto; } .h-full { height: 100%; } .max-w-95 { max-width: 98%; } .mx-auto { margin-left: auto; margin-right: auto; }
+        .mb-6 { margin-bottom: 1.5rem; } .mt-4 { margin-top: 1rem; } .mt-2 { margin-top: 0.5rem; } .ml-2 { margin-left: 0.5rem; } .ml-1 { margin-left: 0.25rem; } .mr-2 { margin-right: 0.5rem; }
+        .p-4 { padding: 1rem; } .p-2\.5 { padding: 0.625rem; } 
+        
+        .px-4 { padding-left: 0.5rem; padding-right: 0.5rem; } 
+        .px-3 { padding-left: 0.5rem; padding-right: 0.5rem; } 
+        .px-2 { padding-left: 0.25rem; padding-right: 0.25rem; }
+        .py-3 { padding-top: 0.5rem; padding-bottom: 0.5rem; } 
+        .py-2 { padding-top: 0.3rem; padding-bottom: 0.3rem; } 
+        .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; } .py-0\.5 { padding-top: 0.125rem; padding-bottom: 0.125rem; }
+        .max-h-48 { max-height: 12rem; } .max-h-\[80vh\] { max-height: 75vh; }
+
+        .w-12 { width: 2.5rem; } .w-16 { width: 3.5rem; } .w-20 { width: 4.5rem; } .w-24 { width: 5.5rem; } .w-28 { width: 4.5rem; } 
+        .w-32 { width: 8rem; } .max-w-32 { max-width: 8rem; } .min-w-header { min-width: 8rem; }
+
+        /* --- 4. テキスト・フォント --- */
+        .text-3xl { font-size: 1.875rem; line-height: 2.25rem; } .text-lg { font-size: 1.125rem; line-height: 1.75rem; } 
+        .text-sm { font-size: 14px; line-height: 1.25rem; } 
+        .text-xs { font-size: 12px; line-height: 1rem; }
+        .font-bold { font-weight: 700; } .font-semibold { font-weight: 600; } .font-medium { font-weight: 500; } .uppercase { text-transform: uppercase; }
+        .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .whitespace-nowrap { white-space: nowrap; } .whitespace-pre-wrap { white-space: pre-wrap; }
+        .text-center { text-align: center; } .text-right { text-align: right; } .text-left { text-align: left; }
+        .text-white { color: #ffffff; } .text-gray-900 { color: #000000; } .text-gray-800 { color: #1f2937; } .text-gray-700 { color: #111827; } .text-gray-600 { color: #374151; } .text-gray-500 { color: #333333; }
+        .text-blue-600 { color: #2563eb; } .text-blue-500 { color: #3b82f6; } .text-red-600 { color: #dc2626; } .text-orange-800 { color: #9a3412; } .text-purple-800 { color: #6b21a8; } .hover\:text-blue-800:hover { color: #1e40af; }
+        .text-green-500 { color: #22c55e; } .bg-green-500 { background-color: #22c55e; } .hover\:bg-green-600:hover { background-color: #16a34a; }
+
+        /* --- 5. 背景・ボーダー --- */
+        .bg-white { background-color: #ffffff; } .bg-gray-50 { background-color: #f9fafb; } .bg-gray-100 { background-color: #f3f4f6; } .bg-blue-50 { background-color: #eff6ff; } .bg-blue-500 { background-color: #3b82f6; } .bg-red-50 { background-color: #fef2f2; } .bg-orange-50 { background-color: #fff7ed; } .bg-green-100 { background-color: #dcfce7; } .bg-purple-50 { background-color: #faf5ff; }
+        .text-green-600 { color: #16a34a; } .hover\:bg-gray-50:hover { background-color: #f9fafb; } .hover\:bg-gray-100:hover { background-color: #f3f4f6; } .hover\:bg-blue-600:hover { background-color: #2563eb; }
+        .transition-colors { transition-property: background-color, border-color, color, fill, stroke; transition-duration: 150ms; }
+        .border { border-width: 1px; } .border-b { border-bottom-width: 1px; } .border-r { border-right-width: 1px; } .border-gray-200 { border-color: #e5e7eb; } .border-gray-300 { border-color: #d1d5db; } .border-red-200 { border-color: #fecaca; } .border-transparent { border-color: transparent; } .hover\:border-gray-200:hover { border-color: #e5e7eb; }
+        .rounded-lg { border-radius: 0.5rem; } .rounded-md { border-radius: 0.375rem; } .rounded-t-lg { border-top-left-radius: 0.5rem; border-top-right-radius: 0.5rem; } .rounded { border-radius: 0.25rem; } .shadow-sm { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); }
+
+        /* --- 6. カスタムコンポーネント --- */
+        .table-bar { display: flex; align-items: center; justify-content: flex-end; } 
+        .bar-container { width: 40px; background-color: #e5e7eb; border-radius: 4px; height: 8px; margin-left: 6px; flex-shrink: 0; } 
+        .bar { background-color: #3b82f6; height: 100%; border-radius: 4px; transition: width 0.3s ease; }
+        
+        th { cursor: pointer; white-space: nowrap; user-select: none; } th .sort-icon { display: inline-block; width: 1em; text-align: center; }
+        .expand-btn { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-left: 4px; background: #f3f4f6; border-radius: 4px; color: #374151; font-size: 12px; line-height: 1; cursor: pointer; border: 1px solid #d1d5db; } .expand-btn:hover { background: #e5e7eb; }
+        .sub-col { font-size: 13px; color: #4b5563; } .sub-header { font-weight: 600; font-size: 13px; color: #374151; border-bottom-width: 2px; }
+        
+        #loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(255, 255, 255, 0.8); display: flex; justify-content: center; align-items: center; z-index: 9999; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #3b82f6; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; } @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .tab-button { transition: all 0.2s ease-in-out; border: none; background: none; cursor: pointer; padding: 0.5rem 1rem;} .tab-button.active { background-color: #2563eb; color: white; font-weight: 600; }
+        select:focus, button:focus, input:focus { outline: 2px solid #3b82f6; outline-offset: 2px; }
+
+        /* --- トップタブ用スタイル --- */
+        .top-nav { display: flex; border-bottom: 1px solid #e5e7eb; margin-bottom: 1.5rem; }
+        .top-nav-item { padding: 0.75rem 1.5rem; cursor: pointer; font-weight: 500; color: #6b7280; border-bottom: 2px solid transparent; font-size: 15px;}
+        .top-nav-item.active { color: #2563eb; border-bottom-color: #2563eb; font-weight: bold;}
+        .diff-pos { color: #dc2626; font-weight: bold; } .diff-neg { color: #16a34a; font-weight: bold; }
+    </style>
+</head>
+<body class="p-4 md:p-6">
+    <div id="loader"><div class="spinner"></div></div>
+
+    <div class="max-w-95 mx-auto">
+        <div class="top-nav">
+            <div class="top-nav-item active" onclick="switchTopTab('daily')">ダッシュボード</div>
+            <div class="top-nav-item" onclick="switchTopTab('period')">前週・前月比較</div>
+        </div>
+
+        <div id="tab-daily"> 
+            <header class="mb-6 grid grid-cols-1 md:grid-cols-5 gap-6 items-start">
+                <div class="md:col-span-3">
+                    <div class="flex items-center space-x-2 mt-4">
+                        <label class="text-sm font-medium text-gray-700">単位:</label>
+                        <select id="viewType" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg p-2.5" onchange="updateDateOptions()">
+                            <option value="daily">日次明細</option>
+                            <option value="weekly_running">週累計</option>
+                            <option value="monthly_running">月累計</option>
+                        </select>
+
+                        <div id="aggTypeContainer" class="hidden flex items-center space-x-2 ml-4 bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200">
+                            <label class="text-sm font-bold text-gray-700 mr-2">表示:</label>
+                            <label class="text-sm cursor-pointer flex items-center text-gray-800"><input type="radio" name="aggType" value="average" checked onchange="reloadCurrentData()" class="mr-1"> 日平均</label>
+                            <label class="text-sm cursor-pointer flex items-center ml-3 text-gray-800"><input type="radio" name="aggType" value="sum" onchange="reloadCurrentData()" class="mr-1"> 合計</label>
+                        </div>
+
+                        <label class="text-sm font-medium text-gray-700 ml-4">対象日:</label>
+                        <select id="date-selector" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg p-2.5"></select>
+                        <button id="view-button" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-sm border-transparent ml-2">表示</button>
+                    </div>
+                    <div class="mt-2 space-y-1">
+                        <p id="data-date" class="text-gray-500 text-sm">日付を選択してください</p>
+                        <p id="time-range-display" class="text-gray-500 text-sm"></p>
+                    </div>
+                </div>
+                
+                <div class="md:col-span-2 bg-white p-4 rounded-lg shadow-sm max-h-48 overflow-y-auto border border-gray-200">
+                    <h3 class="text-sm font-bold text-gray-800 border-b border-gray-200 pb-2 mb-2">集計の解説</h3>
+                    <pre id="summary-notes" class="text-sm text-gray-600 whitespace-pre-wrap">解説を読み込んでいます...</pre>
+                </div>
+            </header>
+
+            <div class="mb-6 flex justify-between items-center border-b border-gray-200">
+                <div class="flex space-x-2 overflow-x-auto">
+                    <button class="tab-button text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-t-lg" data-filter="終日">終日</button>
+                    <button class="tab-button text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-t-lg active" data-filter="1便">1便</button>
+                    <button class="tab-button text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-t-lg" data-filter="2便">2便</button>
+                    <button class="tab-button text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-t-lg" data-filter="3便">3便</button>
+                    <button class="tab-button text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-t-lg" data-filter="夜間">夜間</button>
+                </div>
+                <div class="whitespace-nowrap ml-2">
+                    <button id="lock-sort-btn" class="text-sm text-blue-600 hover:text-blue-800 font-medium px-3 py-1 rounded-md border border-transparent hover:border-gray-200 bg-white">並び順を固定</button>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-sm overflow-x-auto max-h-[80vh] border border-gray-200">
+                <table class="w-full text-sm text-left text-gray-500 whitespace-nowrap">
+                    <thead id="dashboard-thead" class="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0 z-10 shadow-sm"></thead>
+                    <tbody id="dashboard-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="tab-period" class="hidden">
+            <div class="mb-6 bg-white p-4 rounded-lg border shadow-sm flex flex-col gap-4">
+                
+                <div class="flex items-center space-x-4">
+                    <label class="text-sm font-bold text-gray-700">集計単位:</label>
+                    <select id="comp-unit" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg p-2.5 w-auto" onchange="updateCompUI()">
+                        <option value="weekly_full" selected>週次 (実績)</option>
+                        <option value="monthly_full">月次 (実績)</option>
+                        <option value="daily">日次明細</option>
+                        <option value="weekly_running">週累計</option>
+                        <option value="monthly_running">月累計</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center space-x-4 flex-wrap gap-4 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                    <div class="flex items-center space-x-2">
+                        <label class="text-sm font-bold text-blue-600">比較元 (Before):</label>
+                        <input type="date" id="comp-before-date" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg p-2.5">
+                        <input type="month" id="comp-before-month" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg p-2.5 hidden">
+                    </div>
+                    
+                    <span class="font-bold text-gray-400 text-lg">VS</span>
+                    
+                    <div class="flex items-center space-x-2">
+                        <label class="text-sm font-bold text-orange-600">比較先 (After):</label>
+                        <input type="date" id="comp-after-date" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg p-2.5">
+                        <input type="month" id="comp-after-month" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg p-2.5 hidden">
+                    </div>
+                    
+                    <button onclick="loadPeriodData()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg shadow-sm border-transparent ml-auto">比較実行</button>
+                    <button onclick="downloadComparisonCSV()" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-sm border-transparent">CSVダウンロード</button>
+                </div>
+                <p id="period-range-label" class="mt-2 text-sm text-gray-600 font-medium"></p>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-sm overflow-x-auto max-h-[80vh] border border-gray-200">
+                <table class="w-full text-sm text-left text-gray-500 whitespace-nowrap">
+                    <thead class="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0 z-10 shadow-sm">
+                        <tr>
+                            <th rowspan="2" class="px-2 py-3 text-left border-r">拠点コード</th>
+                            <th rowspan="2" class="px-2 py-3 text-left border-r">拠点名</th>
+                            <th colspan="3" class="px-2 py-3 text-center border-b border-r bg-blue-50">作業個数 (個)</th>
+                            <th colspan="3" class="px-2 py-3 text-center border-b border-r bg-orange-50">総コスト (円)</th>
+                            <th colspan="3" class="px-2 py-3 text-center border-b bg-green-50">個当たり (円)</th>
+                        </tr>
+                        <tr>
+                            <th class="px-2 py-2 text-right bg-blue-50">After</th><th class="px-2 py-2 text-right bg-blue-50">Before</th><th class="px-2 py-2 text-right bg-blue-50 border-r">増減</th>
+                            <th class="px-2 py-2 text-right bg-orange-50">After</th><th class="px-2 py-2 text-right bg-orange-50">Before</th><th class="px-2 py-2 text-right bg-orange-50 border-r">増減</th>
+                            <th class="px-2 py-2 text-right bg-green-50">After</th><th class="px-2 py-2 text-right bg-green-50">Before</th><th class="px-2 py-2 text-right bg-green-50">増減</th>
+                        </tr>
+                    </thead>
+                    <tbody id="period-tbody">
+                        <tr><td colspan="11" class="text-center py-8">条件を指定して実行してください</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function formatNum(val, precision = 0) { 
+        return Number(val).toLocaleString(undefined, { minimumFractionDigits: precision, maximumFractionDigits: precision }); 
+    }
+    function fmt(n, d=0) { return formatNum(n, d); }
+
+    // --- Global Variables ---
+    let rawDates = {};
+    let allData = [];
+    
+    let lastCsvResult = null;
+    let lastDateString = '';
+    let lastViewType = 'daily';
+    let currentAggType = 'average'; 
+    
+    let currentFilter = '1便';
+    let currentSort = { key: 'workVolume', direction: 'desc' };
+    let isSortOrderLocked = false;
+    let lockedBaseOrder = [];
+    let pinnedBases = new Set();
+    
+    let expandedColumns = { manHours: true, totalStaffCount: true, totalCost: false };
+    const timeRangeMap = { '終日': '0:00 ～ 24:00', '1便': '0:00 ～ 10:00', '2便': '10:00 ～ 14:00', '3便': '14:00 ～ 18:00', '夜間': '18:00 ～ 24:00' };
+
+    // --- Helpers ---
+    function showLoader(isLoading) { document.getElementById('loader').style.display = isLoading ? 'flex' : 'none'; }
+    function googleScriptRun(funcName, ...args) {
+        return new Promise((resolve, reject) => {
+            google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[funcName](...args);
+        });
+    }
+
+    function switchTopTab(tabName) {
+        document.querySelectorAll('.top-nav-item').forEach(el => el.classList.remove('active'));
+        document.querySelector(`.top-nav-item[onclick="switchTopTab('${tabName}')"]`).classList.add('active');
+        document.getElementById('tab-daily').classList.add('hidden');
+        document.getElementById('tab-period').classList.add('hidden');
+        document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+    }
+
+    // --- Initialization ---
+    window.addEventListener('load', async function() {
+        const today = new Date();
+        const diff = today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1);
+        
+        const prevWeekMon = new Date(today);
+        prevWeekMon.setDate(diff - 7);
+        const thisWeekMon = new Date(today);
+        thisWeekMon.setDate(diff);
+
+        document.getElementById('comp-before-date').value = prevWeekMon.toISOString().split('T')[0];
+        document.getElementById('comp-after-date').value = thisWeekMon.toISOString().split('T')[0];
+        
+        const yyyyMm = today.toISOString().slice(0, 7);
+        document.getElementById('comp-before-month').value = yyyyMm;
+        document.getElementById('comp-after-month').value = yyyyMm;
+
+        try {
+            showLoader(true);
+            const response = await googleScriptRun('getWebAppInitialData');
+            if (response.error) throw new Error(response.error);
+            if (response.summaryNotes) document.getElementById('summary-notes').textContent = response.summaryNotes;
+            
+            rawDates = response.availableDates;
+            updateDateOptions();
+            
+            if (response.initialData) processAllData(response.initialData, rawDates.daily[0], 'daily');
+        } catch (err) {
+            console.error(err);
+            document.getElementById('summary-notes').textContent = `エラー: ${err.message}`;
+        } finally { showLoader(false); }
+    });
+
+    // ============================================
+    // タブ1: ダッシュボードロジック
+    // ============================================
+    function updateDateOptions() {
+        const type = document.getElementById('viewType').value;
+        const selector = document.getElementById('date-selector');
+        selector.innerHTML = '';
+        
+        const aggContainer = document.getElementById('aggTypeContainer');
+        if (type === 'daily') {
+            aggContainer.classList.add('hidden');
+        } else {
+            aggContainer.classList.remove('hidden');
+        }
+        
+        const dates = rawDates[type] || [];
+        if (dates.length === 0) {
+            selector.innerHTML = '<option value="" disabled selected>データなし</option>';
+            document.getElementById('view-button').disabled = true;
+            return;
+        }
+        
+        dates.forEach(dateStr => {
+            const option = document.createElement('option');
+            option.value = dateStr;
+            option.textContent = dateStr.length === 7 ? `${dateStr.slice(0,4)}年${dateStr.slice(5,7)}月` : `${dateStr.slice(0,4)}/${dateStr.slice(5,7)}/${dateStr.slice(8,10)}`;
+            selector.appendChild(option);
+        });
+        document.getElementById('view-button').disabled = false;
+        document.getElementById('view-button').click();
+    }
+
+    function reloadCurrentData() {
+        if (lastCsvResult) {
+            processAllData(lastCsvResult, lastDateString, lastViewType);
+        }
+    }
+
+    document.getElementById('view-button').addEventListener('click', async () => {
+        const type = document.getElementById('viewType').value;
+        const selectedDate = document.getElementById('date-selector').value;
+        if (!selectedDate) return;
+        
+        try {
+            showLoader(true);
+            const func = type === 'daily' ? 'getDailyCsvData' : (type === 'weekly' ? 'getWeeklyRunningData' : 'getMonthlyRunningData');
+            const data = await googleScriptRun(func, selectedDate);
+            processAllData(data, selectedDate, type);
+        } catch (err) { console.error(err); alert('データ取得失敗: ' + err.message); } finally { showLoader(false); }
+    });
+
+    function processAllData(csvResult, dateString, type = 'daily') {
+        lastCsvResult = csvResult;
+        lastDateString = dateString;
+        lastViewType = type;
+
+        if (!csvResult || !csvResult.data) { allData = []; renderDashboard(); return; }
+        
+        const isRunning = type !== 'daily';
+        const radioMode = document.querySelector('input[name="aggType"]:checked').value;
+        currentAggType = isRunning ? radioMode : 'sum'; 
+        const suff = isRunning ? (currentAggType === 'sum' ? '_合計' : '_日平均') : ''; 
+
+        allData = csvResult.data.map(row => {
+            const getNum = (key) => { const val = parseFloat(row[key]); return isNaN(val) ? 0 : val; };
+            return {
+                baseCode: row['拠点コード'] || row['集約拠点コード'],
+                baseName: row['拠点名称'],
+                timeSlot: row['時間帯'],
+                workVolume: getNum(`作業個数${suff}`),
+                
+                manHoursDetail: { total: getNum(`総投入時間(分)${suff}`), internal: getNum(`自社投入時間(分)${suff}`), timee: getNum(`タイミー投入時間(分)${suff}`), outsourcing: getNum(`外部投入時間(分)${suff}`) },
+                staffCountDetail: { total: getNum(`総人員数${suff}`), internal: getNum(`自社人員数${suff}`), timee: getNum(`タイミー人員数${suff}`), outsourcing: getNum(`外部人員数${suff}`) },
+                costDetail: { total: getNum(`総コスト${suff}`), internal: getNum(`自社コスト${suff}`), timee: getNum(`タイミーコスト${suff}`), outsourcing: getNum(`外部コスト${suff}`) },
+                
+                manHours: getNum(`総投入時間(分)${suff}`),
+                totalStaffCount: getNum(`総人員数${suff}`),
+                totalCost: getNum(`総コスト${suff}`),
+                costPerItem: isRunning ? getNum('個当たりコスト_合計ベース') : getNum('個当たりコスト')
+            };
+        });
+        
+        const displayDate = dateString.length === 7 ? `${dateString.slice(0,4)}年${dateString.slice(5,7)}月` : `${dateString.slice(0,4)}/${dateString.slice(5,7)}/${dateString.slice(8,10)}`;
+        document.getElementById('data-date').textContent = `データ対象日: ${displayDate}`;
+        document.getElementById('time-range-display').textContent = `対象時間帯: ${timeRangeMap[currentFilter] || ''}`;
+        renderDashboard();
+    }
+
+    function getFilteredAndSortedData() {
+        let data = allData.filter(d => d.timeSlot === currentFilter);
+        if (isSortOrderLocked && lockedBaseOrder.length > 0) {
+            const orderMap = new Map(lockedBaseOrder.map((code, index) => [code, index]));
+            data.sort((a, b) => (orderMap.has(a.baseCode) ? orderMap.get(a.baseCode) : 9999) - (orderMap.has(b.baseCode) ? orderMap.get(b.baseCode) : 9999));
+        } else {
+            data.sort((a, b) => {
+                const valA = a[currentSort.key], valB = b[currentSort.key];
+                let compare = (typeof valA === 'string') ? valA.localeCompare(valB, 'ja') : (valA || 0) - (valB || 0);
+                return currentSort.direction === 'asc' ? compare : -compare;
+            });
+        }
+        return data;
+    }
+
+    function renderDashboard() {
+        const processedData = getFilteredAndSortedData();
+        const finalData = [ ...processedData.filter(d => pinnedBases.has(d.baseCode)), ...processedData.filter(d => !pinnedBases.has(d.baseCode)) ];
+        renderTableHeader(); renderTableBody(finalData);
+    }
+
+    function renderTableHeader() {
+        const thead = document.getElementById('dashboard-thead');
+        const createHeader = (label, key, expandableKey = null) => {
+            let sortIcon = currentSort.key === key ? (currentSort.direction === 'asc' ? '▲' : '▼') : '';
+            let expandBtn = expandableKey ? `<span class="expand-btn" data-target="${expandableKey}">${expandedColumns[expandableKey] ? '−' : '＋'}</span>` : '';
+            let html = `<th scope="col" class="px-2 py-2 text-right" data-sort-key="${key}">${label}<span class="sort-icon ml-1 text-xs">${sortIcon}</span>${expandBtn}</th>`;
+            if (expandableKey && expandedColumns[expandableKey]) {
+                html += `<th class="px-2 py-2 sub-header bg-gray-100 text-right">自社</th><th class="px-2 py-2 sub-header bg-orange-50 text-right">タイミー</th><th class="px-2 py-2 sub-header bg-purple-50 text-right">派遣･委託</th>`;
+            }
+            return html;
+        };
+        thead.innerHTML = `<tr>
+            <th scope="col" class="px-2 py-2 text-center">固定</th>
+            <th scope="col" class="px-2 py-2 text-left" data-sort-key="baseCode">拠点コード<span class="sort-icon ml-1 text-xs">${currentSort.key === 'baseCode' ? (currentSort.direction === 'asc' ? '▲' : '▼') : ''}</span></th>
+            <th scope="col" class="px-2 py-2 text-left" data-sort-key="baseName">拠点名<span class="sort-icon ml-1 text-xs">${currentSort.key === 'baseName' ? (currentSort.direction === 'asc' ? '▲' : '▼') : ''}</span></th>
+            ${createHeader('作業個数', 'workVolume')}
+            ${createHeader('投入時間(H)', 'manHours', 'manHours')}
+            ${createHeader('投入人数', 'totalStaffCount', 'totalStaffCount')}
+            ${createHeader('人的コスト', 'totalCost', 'totalCost')}
+            ${createHeader('個当たり', 'costPerItem')}
+        </tr>`;
+        
+        thead.querySelectorAll('th[data-sort-key]').forEach(th => {
+            th.addEventListener('click', (e) => {
+                if (e.target.classList.contains('expand-btn')) return;
+                const key = th.dataset.sortKey;
+                const defaultDir = (key === 'baseCode' || key === 'baseName') ? 'asc' : 'desc';
+                if (currentSort.key === key) { currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc'; }
+                else { currentSort.key = key; currentSort.direction = defaultDir; }
+                isSortOrderLocked = false; updateLockBtnState(); renderDashboard();
+            });
+        });
+        thead.querySelectorAll('.expand-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                expandedColumns[btn.dataset.target] = !expandedColumns[btn.dataset.target];
+                renderDashboard();
+            });
+        });
+    }
+
+    function renderTableBody(data) {
+        const tableBody = document.getElementById('dashboard-table-body');
+        tableBody.innerHTML = '';
+        if (data.length === 0) return tableBody.innerHTML = '<tr><td colspan="15" class="text-center p-8 text-gray-500">データがありません。</td></tr>';
+        
+        const maxValues = {
+            workVolume: Math.max(1, ...data.map(d => d.workVolume)),
+            manHours: Math.max(1, ...data.map(d => d.manHoursDetail.total)),
+            totalStaffCount: Math.max(1, ...data.map(d => d.staffCountDetail.total)),
+            totalCost: Math.max(1, ...data.map(d => d.costDetail.total)),
+            costPerItem: Math.max(1, ...data.map(d => d.costPerItem)),
+        };
+        
+        const fragment = document.createDocumentFragment();
+        const headerHeight = document.querySelector('#dashboard-thead').offsetHeight;
+        
+        const isAvg = (currentAggType === 'average');
+        const precVol = isAvg ? 1 : 0;
+        const precStaff = isAvg ? 1 : 0;
+
+        data.forEach(d => {
+            const row = document.createElement('tr');
+            const isPinned = pinnedBases.has(d.baseCode);
+            row.className = `bg-white border-b hover:bg-gray-50 transition-colors ${isPinned ? 'bg-blue-50 sticky z-5' : ''}`;
+            if (isPinned) row.style.top = `${headerHeight}px`;
+            
+            const addCell = (html, align='right', classes='', title='') => {
+                const td = document.createElement('td');
+                td.className = `px-2 py-2 text-${align} ${classes}`;
+                td.innerHTML = html;
+                if(title) td.title = title;
+                row.appendChild(td);
+            };
+            
+            const checkboxCell = document.createElement('td');
+            checkboxCell.className = 'px-2 py-2 text-center';
+            checkboxCell.innerHTML = `<input type="checkbox" class="pin-checkbox" data-base-code="${d.baseCode}" ${isPinned ? 'checked' : ''}>`;
+            row.appendChild(checkboxCell);
+            
+            addCell(d.baseCode, 'left');
+            const shortName = d.baseName.length > 10 ? d.baseName.substring(0, 10) + '...' : d.baseName;
+            addCell(shortName, 'left', 'font-medium text-gray-800', d.baseName);
+            
+            addCell(createBarCell(d.workVolume, maxValues.workVolume, precVol));
+            addDynamicColumns(row, d.manHoursDetail, maxValues.manHours, 'manHours', 1, true);
+            addDynamicColumns(row, d.staffCountDetail, maxValues.totalStaffCount, 'totalStaffCount', precStaff, false);
+            addDynamicColumns(row, d.costDetail, maxValues.totalCost, 'totalCost', 0, false);
+            addCell(createBarCell(d.costPerItem, maxValues.costPerItem, 1));
+            
+            fragment.appendChild(row);
+        });
+        tableBody.appendChild(fragment);
+    }
+
+    function addDynamicColumns(row, values, maxValue, key, precision, isTime) {
+        const valTotal = isTime ? values.total / 60 : values.total;
+        const valInternal = isTime ? values.internal / 60 : values.internal;
+        const valTimee = isTime ? values.timee / 60 : values.timee;
+        const valOutsourcing = isTime ? values.outsourcing / 60 : values.outsourcing;
+        const maxVal = isTime ? maxValue / 60 : maxValue;
+        
+        const createTd = (html, bgClass='') => {
+            const td = document.createElement('td');
+            td.className = `px-2 py-2 text-right ${bgClass}`;
+            td.innerHTML = html;
+            row.appendChild(td);
+        };
+        
+        createTd(createBarCell(valTotal, maxVal, precision));
+        
+        if (expandedColumns[key]) {
+            createTd(formatNum(valInternal, precision), 'bg-gray-50 sub-col text-gray-600');
+            createTd(formatNum(valTimee, precision), 'bg-orange-50 sub-col text-orange-800 font-medium');
+            createTd(formatNum(valOutsourcing, precision), 'bg-purple-50 sub-col text-purple-800 font-medium');
+        }
+    }
+
+    function createBarCell(value, maxValue, precision) {
+        const val = value || 0;
+        const formatted = formatNum(val, precision);
+        const width = maxValue > 0 ? Math.min((val / maxValue) * 100, 100) : 0;
+        return `<div class="table-bar"><span class="text-right mr-1">${formatted}</span><div class="bar-container"><div class="bar" style="width: ${width}%;"></div></div></div>`;
+    }
+
+    function updateLockBtnState() {
+        const btn = document.getElementById('lock-sort-btn');
+        if (isSortOrderLocked) { btn.textContent = '並び順固定中'; btn.classList.replace('text-blue-600', 'text-green-600'); btn.classList.add('bg-green-100'); }
+        else { btn.textContent = '並び順を固定'; btn.classList.replace('text-green-600', 'text-blue-600'); btn.classList.remove('bg-green-100'); }
+    }
+
+    document.querySelectorAll('.tab-button').forEach(b => b.addEventListener('click', () => {
+        document.querySelector('.tab-button.active').classList.remove('active');
+        b.classList.add('active'); currentFilter = b.dataset.filter; renderDashboard();
+    }));
+    document.getElementById('lock-sort-btn').addEventListener('click', () => {
+        isSortOrderLocked = !isSortOrderLocked;
+        if (isSortOrderLocked) lockedBaseOrder = getFilteredAndSortedData().map(d => d.baseCode);
+        updateLockBtnState(); renderDashboard();
+    });
+    document.getElementById('dashboard-table-body').addEventListener('change', (e) => {
+        if (e.target.classList.contains('pin-checkbox')) {
+            e.target.checked ? pinnedBases.add(e.target.dataset.baseCode) : pinnedBases.delete(e.target.dataset.baseCode); renderDashboard();
+        }
+    });
+
+    // ============================================
+    // タブ2: 期間比較ロジック (自由選択 & CSVダウンロード)
+    // ============================================
+    function updateCompUI() {
+        const unit = document.getElementById('comp-unit').value;
+        const isMonth = unit.includes('monthly');
+        
+        document.getElementById('comp-before-date').classList.toggle('hidden', isMonth);
+        document.getElementById('comp-before-month').classList.toggle('hidden', !isMonth);
+        
+        document.getElementById('comp-after-date').classList.toggle('hidden', isMonth);
+        document.getElementById('comp-after-month').classList.toggle('hidden', !isMonth);
+    }
+
+    async function loadPeriodData() {
+        const unit = document.getElementById('comp-unit').value;
+        const isMonth = unit.includes('monthly');
+        
+        const beforeVal = isMonth ? document.getElementById('comp-before-month').value : document.getElementById('comp-before-date').value;
+        const afterVal = isMonth ? document.getElementById('comp-after-month').value : document.getElementById('comp-after-date').value;
+        
+        if (!beforeVal || !afterVal) return alert('比較元 (Before) と 比較先 (After) の日付を選択してください。');
+
+        document.getElementById('period-range-label').textContent = `比較期間: [Before] ${beforeVal} vs [After] ${afterVal}`;
+        showLoader(true);
+        try {
+            const res = await googleScriptRun('getComparisonData', unit, afterVal, beforeVal);
+            renderPeriodTable(res.current, res.previous, unit);
+        } catch(e) { 
+            console.error(e); alert('データ取得失敗: ' + e.message); 
+        } finally { 
+            showLoader(false); 
+        }
+    }
+
+    function renderPeriodTable(curr, prev, unit) {
+        const tbody = document.getElementById('period-tbody');
+        tbody.innerHTML = '';
+        if(!curr.data.length && !prev.data.length) {
+            tbody.innerHTML = '<tr><td colspan="11" class="text-center py-8 text-gray-500">データがありません</td></tr>';
+            return;
+        }
+
+        const map = new Map();
+        const isDaily = (unit === 'daily');
+        const suffix = currentAggType === 'average' ? '_日平均' : '_合計';
+        const volKey = isDaily ? '作業個数' : `作業個数${suffix}`;
+        const costKey = isDaily ? '総コスト' : `総コスト${suffix}`;
+
+        const add = (r, isCur) => {
+            if(r['時間帯'] !== currentFilter) return; 
+            const code = r['拠点コード'] || r['集約拠点コード'];
+            if (!map.has(code)) map.set(code, { code: code, name: r['拠点名称'], cv:0, pv:0, cc:0, pc:0 });
+            const d = map.get(code);
+            if (isCur) { 
+                d.cv += parseFloat(r[volKey] || r['作業個数'] || 0); 
+                d.cc += parseFloat(r[costKey] || r['総コスト'] || 0); 
+            } else { 
+                d.pv += parseFloat(r[volKey] || r['作業個数'] || 0); 
+                d.pc += parseFloat(r[costKey] || r['総コスト'] || 0); 
+            }
+        };
+
+        curr.data.forEach(r => add(r, true));
+        prev.data.forEach(r => add(r, false));
+
+        Array.from(map.values()).sort((a,b) => b.cv - a.cv).forEach(r => {
+            const cCpi = r.cv ? r.cc/r.cv : 0, pCpi = r.pv ? r.pc/r.pv : 0, diffCpi = cCpi - pCpi;
+            
+            const precVol = (currentAggType === 'average' && !isDaily) ? 1 : 0;
+            const precCost = (currentAggType === 'average' && !isDaily) ? 1 : 0;
+
+            const cell = (val, fmtOpt) => `<td class="px-2 py-2 text-right border-b">${fmt(val, fmtOpt)}</td>`;
+            const diffCell = (val, prec=0, isInv=false) => {
+                const cls = val > 0 ? (isInv ? 'diff-pos' : 'diff-neg') : (val < 0 ? (isInv ? 'diff-neg' : 'diff-pos') : '');
+                const sign = val > 0 ? '+' : '';
+                return `<td class="px-2 py-2 text-right border-b ${cls}">${sign}${fmt(val, prec)}</td>`;
+            };
+            
+            const shortName = r.name.length > 10 ? r.name.substring(0, 10) + '...' : r.name;
+            
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="text-left px-2 py-2 border-b border-r">${r.code}</td>
+                <td class="text-left px-2 py-2 border-b border-r max-w-32 truncate" title="${r.name}">${shortName}</td>
+                ${cell(r.cv, precVol)} ${cell(r.pv, precVol)} ${diffCell(r.cv - r.pv, precVol, false)}
+                ${cell(r.cc, precCost)} ${cell(r.pc, precCost)} ${diffCell(r.cc - r.pc, precCost, true)}
+                ${cell(cCpi, 1)} ${cell(pCpi, 1)} ${diffCell(diffCpi, 1, true)}
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // ★ CSVダウンロード機能のヘッダーズレ修正
+    function downloadComparisonCSV() {
+        const tbody = document.getElementById('period-tbody');
+        if (!tbody || tbody.innerText.includes('条件を指定して実行してください') || tbody.innerText.includes('データがありません')) {
+            alert('ダウンロードするデータがありません。先に比較を実行してください。');
+            return;
+        }
+        
+        let csvContent = "\uFEFF"; // Excel用のBOM
+        
+        // ★ 結合セルを考慮した、Excelに貼り付けやすい2段ヘッダー
+        csvContent += '"拠点コード","拠点名","作業個数 (個)","","","総コスト (円)","","","個当たり (円)","",""\n';
+        csvContent += '"","","After","Before","増減","After","Before","増減","After","Before","増減"\n';
+        
+        const rows = tbody.querySelectorAll('tr');
+        rows.forEach(row => {
+            const cols = row.querySelectorAll('td');
+            const rowData = Array.from(cols).map(col => {
+                // タイトル属性（省略前の拠点名）があればそれを採用
+                let text = col.getAttribute('title') || col.innerText;
+                text = text.replace(/"/g, '""').replace(/\n/g, ''); 
+                return `"${text}"`;
+            });
+            csvContent += rowData.join(',') + "\n";
+        });
+        
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        
+        const unitSelect = document.getElementById('comp-unit');
+        const unitName = unitSelect.options[unitSelect.selectedIndex].text.replace(/ /g, '');
+        const dateStr = new Date().toISOString().slice(0,10).replace(/-/g, '');
+        link.setAttribute('download', `比較データ_${unitName}_${dateStr}.csv`);
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+    </script>
+</body>
+</html>

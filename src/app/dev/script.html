@@ -1,0 +1,220 @@
+<script>
+    let rawDates = {};
+    let allData = [];
+    let currentFilter = '1便';
+    let currentSort = { key: 'workVolume', direction: 'desc' };
+    let isSortOrderLocked = false;
+    let lockedBaseOrder = [];
+    let pinnedBases = new Set();
+    let expandedColumns = { manHours: true, totalStaffCount: true, totalCost: false };
+    const timeRangeMap = { '終日': '0:00 ～ 24:00', '1便': '0:00 ～ 10:00', '2便': '10:00 ～ 14:00', '3便': '14:00 ～ 18:00', '夜間': '18:00 ～ 24:00' };
+
+    function showLoader(b) { document.getElementById('loader').style.display = b ? 'flex' : 'none'; }
+    function fmt(n, d=0) { return n.toLocaleString(undefined, {minimumFractionDigits:d, maximumFractionDigits:d}); }
+
+    window.onload = () => {
+        const today = new Date();
+        const diff = today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1);
+        document.getElementById('comp-base-date').value = new Date(today.setDate(diff)).toISOString().split('T')[0];
+        
+        showLoader(true);
+        google.script.run.withSuccessHandler(init).getWebAppInitialData();
+    };
+
+    function init(res) {
+        showLoader(false);
+        if (res.error) return alert(res.error);
+        rawDates = res.availableDates;
+        if (res.summaryNotes) document.getElementById('summary-notes').textContent = res.summaryNotes;
+        if (res.costFileName) document.getElementById('cost-data-date').textContent = `人的コスト参照: ${res.costFileName}`;
+        updateDateOptions();
+        if (res.initialData) processAllData(res.initialData, rawDates.daily[0]);
+    }
+
+    function switchTopTab(id) {
+        document.querySelectorAll('.top-nav-item').forEach(e => e.classList.remove('active'));
+        event.target.classList.add('active');
+        document.getElementById('tab-daily').classList.add('hidden');
+        document.getElementById('tab-period').classList.add('hidden');
+        document.getElementById(`tab-${id}`).classList.remove('hidden');
+    }
+
+    function updateDateOptions() {
+        const type = document.getElementById('viewType').value;
+        const selector = document.getElementById('date-selector');
+        selector.innerHTML = (rawDates[type] || []).map(d => `<option value="${d}">${d}</option>`).join('');
+    }
+
+    document.getElementById('view-button').addEventListener('click', () => {
+        const type = document.getElementById('viewType').value;
+        const date = document.getElementById('date-selector').value;
+        if(!date) return;
+        showLoader(true);
+        const func = type === 'daily' ? 'getDailyCsvData' : (type === 'weekly' ? 'getWeeklyRunningData' : 'getMonthlyRunningData');
+        google.script.run.withSuccessHandler(res => { showLoader(false); processAllData(res, date, type); })[func](date);
+    });
+
+    // --- ダッシュボード描画 ---
+    function processAllData(csvResult, dateString, type = 'daily') {
+        if (!csvResult || !csvResult.data) { allData = []; renderDashboard(); return; }
+        const isRunning = type !== 'daily';
+        
+        allData = csvResult.data.map(r => {
+            const getN = k => parseFloat(r[k]) || 0;
+            // 日次はそのまま、累計は「_合計」を使う
+            const suff = isRunning ? '_合計' : ''; 
+            return {
+                baseCode: r['拠点コード'], baseName: r['拠点名称'], timeSlot: r['時間帯'],
+                workVolume: getN(`作業個数${suff}`),
+                manHoursDetail: { total: getN(`総投入時間(分)${suff}`), internal: getN(`自社投入時間(分)${suff}`), timee: getN(`タイミー投入時間(分)${suff}`), outsourcing: getN(`外部投入時間(分)${suff}`) },
+                staffCountDetail: { total: getN(`総人員数${suff}`), internal: getN(`自社人員数${suff}`), timee: getN(`タイミー人員数${suff}`), outsourcing: getN(`外部人員数${suff}`) },
+                costDetail: { total: getN(`総コスト${suff}`), internal: getN(`自社コスト${suff}`), timee: getN(`タイミーコスト${suff}`), outsourcing: getN(`外部コスト${suff}`) },
+                manHours: getN(`総投入時間(分)${suff}`), totalStaffCount: getN(`総人員数${suff}`), totalCost: getN(`総コスト${suff}`),
+                costPerItem: isRunning ? getN('個当たりコスト_合計ベース') : getN('個当たりコスト')
+            };
+        });
+        document.getElementById('data-date').textContent = `データ対象日: ${dateString}`;
+        updateTimeRangeDisplay();
+        renderDashboard();
+    }
+
+    function updateTimeRangeDisplay() { document.getElementById('time-range-display').textContent = `対象時間帯: ${timeRangeMap[currentFilter] || ''}`; }
+
+    function getFilteredAndSortedData() {
+        let data = allData.filter(d => d.timeSlot === currentFilter);
+        if (isSortOrderLocked && lockedBaseOrder.length) {
+            const orderMap = new Map(lockedBaseOrder.map((c, i) => [c, i]));
+            data.sort((a, b) => (orderMap.get(a.baseCode) ?? 9999) - (orderMap.get(b.baseCode) ?? 9999));
+        } else {
+            data.sort((a, b) => {
+                const va = a[currentSort.key], vb = b[currentSort.key];
+                const cmp = typeof va === 'string' ? va.localeCompare(vb) : va - vb;
+                return currentSort.direction === 'asc' ? cmp : -cmp;
+            });
+        }
+        return data;
+    }
+
+    function renderDashboard() {
+        const pd = getFilteredAndSortedData();
+        const finalData = [...pd.filter(d => pinnedBases.has(d.baseCode)), ...pd.filter(d => !pinnedBases.has(d.baseCode))];
+        renderTableHeader(); renderTableBody(finalData);
+    }
+
+    function renderTableHeader() {
+        const createHeader = (label, key, wClass, expKey = null) => {
+            let sIcon = currentSort.key === key ? (currentSort.direction === 'asc' ? '▲' : '▼') : '';
+            let expBtn = expKey ? `<span class="expand-btn" data-target="${expKey}">${expandedColumns[expKey]?'−':'＋'}</span>` : '';
+            let html = `<th class="px-4 py-3 ${wClass}" data-sort-key="${key}">${label}<span class="sort-icon ml-1 text-xs">${sIcon}</span>${expBtn}</th>`;
+            if (expKey && expandedColumns[expKey]) {
+                const sw = expKey === 'totalCost' ? 'w-24' : 'w-16';
+                html += `<th class="px-2 py-3 ${sw} sub-header bg-gray-100 text-center">自社</th><th class="px-2 py-3 ${sw} sub-header bg-orange-50 text-center">タイミー</th><th class="px-2 py-3 ${sw} sub-header bg-purple-50 text-center">派遣･委託</th>`;
+            }
+            return html;
+        };
+        document.getElementById('dashboard-thead').innerHTML = `<tr><th class="px-4 py-3 w-12 text-center">固定</th>${createHeader('拠点コード','baseCode','w-28')}${createHeader('拠点名','baseName','w-40')}${createHeader('作業個数','workVolume','min-w-header')}${createHeader('投入時間(H)','manHours','min-w-header','manHours')}${createHeader('投入人数','totalStaffCount','min-w-header','totalStaffCount')}${createHeader('人的コスト','totalCost','min-w-header','totalCost')}${createHeader('個当たり','costPerItem','min-w-header')}</tr>`;
+        
+        document.querySelectorAll('th[data-sort-key]').forEach(th => th.addEventListener('click', e => {
+            if (e.target.classList.contains('expand-btn')) return;
+            const k = th.dataset.sortKey;
+            if (currentSort.key === k) currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc'; else { currentSort.key = k; currentSort.direction = ['baseCode','baseName'].includes(k) ? 'asc' : 'desc'; }
+            isSortOrderLocked = false; updateLockBtnState(); renderDashboard();
+        }));
+        document.querySelectorAll('.expand-btn').forEach(btn => btn.addEventListener('click', e => {
+            e.stopPropagation(); expandedColumns[btn.dataset.target] = !expandedColumns[btn.dataset.target]; renderDashboard();
+        }));
+    }
+
+    function renderTableBody(data) {
+        const tb = document.getElementById('dashboard-table-body');
+        if(!data.length) return tb.innerHTML = '<tr><td colspan="15" class="text-center p-8">データなし</td></tr>';
+        const maxV = { workVolume: Math.max(1,...data.map(d=>d.workVolume)), manHours: Math.max(1,...data.map(d=>d.manHoursDetail.total)), totalStaffCount: Math.max(1,...data.map(d=>d.staffCountDetail.total)), totalCost: Math.max(1,...data.map(d=>d.costDetail.total)), costPerItem: Math.max(1,...data.map(d=>d.costPerItem)) };
+        
+        tb.innerHTML = data.map(d => {
+            const isP = pinnedBases.has(d.baseCode);
+            let html = `<tr class="bg-white border-b hover:bg-gray-50 ${isP?'bg-blue-50 sticky z-5':''}" style="${isP?'top:35px':''}"><td class="px-4 py-2 text-center w-12"><input type="checkbox" class="pin-checkbox" data-base-code="${d.baseCode}" ${isP?'checked':''}></td><td class="px-4 py-2 text-left">${d.baseCode}</td><td class="px-4 py-2 text-left max-w-40 truncate" title="${d.baseName}">${d.baseName}</td><td class="px-4 py-2">${createBar(d.workVolume, maxV.workVolume, 0)}</td>`;
+            html += getDynamicCols(d.manHoursDetail, maxV.manHours, 'manHours', 1, true) + getDynamicCols(d.staffCountDetail, maxV.totalStaffCount, 'totalStaffCount', 0, false) + getDynamicCols(d.costDetail, maxV.totalCost, 'totalCost', 0, false) + `<td class="px-4 py-2">${createBar(d.costPerItem, maxV.costPerItem, 1)}</td></tr>`;
+            return html;
+        }).join('');
+    }
+
+    function getDynamicCols(v, max, k, p, isTime) {
+        const div = isTime ? 60 : 1;
+        let h = `<td class="px-4 py-2">${createBar(v.total/div, max/div, p)}</td>`;
+        if (expandedColumns[k]) h += `<td class="px-4 py-2 text-right bg-gray-50 sub-col">${fmt(v.internal/div,p)}</td><td class="px-4 py-2 text-right bg-orange-50 text-orange-800">${fmt(v.timee/div,p)}</td><td class="px-4 py-2 text-right bg-purple-50 text-purple-800">${fmt(v.outsourcing/div,p)}</td>`;
+        return h;
+    }
+    function createBar(v, max, p) { return `<div class="table-bar"><span class="w-24 text-right mr-2 flex-shrink-0">${fmt(v||0, p)}</span><div class="bar-container"><div class="bar" style="width:${max>0?Math.min(((v||0)/max)*100,100):0}%"></div></div></div>`; }
+    function updateLockBtnState() {
+        const btn = document.getElementById('lock-sort-btn');
+        btn.textContent = isSortOrderLocked ? '並び順固定中' : '並び順を固定';
+        btn.className = `text-sm font-medium px-3 py-1 rounded-md border ${isSortOrderLocked ? 'text-green-600 bg-green-100 border-transparent' : 'text-blue-600 bg-white hover:border-gray-200 border-transparent'}`;
+    }
+
+    document.querySelectorAll('.tab-button').forEach(b => b.addEventListener('click', () => {
+        document.querySelector('.tab-button.active').classList.remove('active');
+        b.classList.add('active'); currentFilter = b.dataset.filter; updateTimeRangeDisplay(); renderDashboard();
+    }));
+    document.getElementById('lock-sort-btn').addEventListener('click', () => {
+        isSortOrderLocked = !isSortOrderLocked;
+        if(isSortOrderLocked) lockedBaseOrder = getFilteredAndSortedData().map(d=>d.baseCode);
+        updateLockBtnState(); renderDashboard();
+    });
+    document.getElementById('dashboard-table-body').addEventListener('change', e => {
+        if(e.target.classList.contains('pin-checkbox')) { e.target.checked ? pinnedBases.add(e.target.dataset.baseCode) : pinnedBases.delete(e.target.dataset.baseCode); renderDashboard(); }
+    });
+
+    // --- 期間比較機能 ---
+    function toggleCompInputs() {
+        const m = document.querySelector('input[name="comp-mode"]:checked').value;
+        document.getElementById('input-week-group').classList.toggle('hidden', m !== 'week');
+        document.getElementById('input-month-group').classList.toggle('hidden', m === 'week');
+    }
+
+    function loadComparisonData() {
+        const mode = document.querySelector('input[name="comp-mode"]:checked').value;
+        let cD, pD, label;
+        if(mode === 'week') {
+            const b = document.getElementById('comp-base-date').value; if(!b) return;
+            const bd = new Date(b), md = new Date(bd.setDate(bd.getDate() - bd.getDay() + (bd.getDay()===0?-6:1)));
+            cD = md.toISOString().split('T')[0];
+            pD = new Date(md.setDate(md.getDate()-7)).toISOString().split('T')[0];
+            label = `${pD}週 vs ${cD}週`;
+        } else {
+            const m = document.getElementById('comp-month').value; if(!m) return;
+            cD = `${m}-01`;
+            const [y, mm] = m.split('-');
+            pD = `${mm==='01'?y-1:y}-${mm==='01'?'12':String(mm-1).padStart(2,'0')}-01`;
+            label = `${pD.slice(0,7)} vs ${cD.slice(0,7)}`;
+        }
+        document.getElementById('period-range-label').textContent = label;
+        showLoader(true);
+        google.script.run.withSuccessHandler(res => { showLoader(false); renderPeriodTable(res.current, res.previous); }).getComparisonData(mode, cD, pD);
+    }
+
+    function renderPeriodTable(curr, prev) {
+        const tb = document.getElementById('period-tbody'); tb.innerHTML = '';
+        if(!curr.data.length && !prev.data.length) return tb.innerHTML = '<tr><td colspan="11" class="text-center py-8">データなし</td></tr>';
+        
+        const map = new Map();
+        const add = (r, isCur) => {
+            const k = `${r['拠点コード']}-${r['時間帯']}`;
+            if(!map.has(k)) map.set(k, {c:r['拠点コード'], n:r['拠点名称'], t:r['時間帯'], cv:0, pv:0, cc:0, pc:0});
+            const d = map.get(k);
+            if(isCur) { d.cv += parseFloat(r['作業個数_合計']||0); d.cc += parseFloat(r['総コスト_合計']||0); }
+            else { d.pv += parseFloat(r['作業個数_合計']||0); d.pc += parseFloat(r['総コスト_合計']||0); }
+        };
+        curr.data.filter(r => r['時間帯']===currentFilter).forEach(r => add(r, true));
+        prev.data.filter(r => r['時間帯']===currentFilter).forEach(r => add(r, false));
+
+        const list = Array.from(map.values()).sort((a,b)=>b.cv - a.cv);
+        tb.innerHTML = list.map(r => {
+            const cCpi = r.cv ? r.cc/r.cv : 0, pCpi = r.pv ? r.pc/r.pv : 0;
+            const diffCell = (v, inv) => {
+                const c = v>0?(inv?'diff-pos':'diff-neg'):(v<0?(inv?'diff-neg':'diff-pos'):'');
+                return `<td class="px-2 py-2 text-right border-b ${c}">${v>0?'+':''}${fmt(v, inv?1:0)}</td>`;
+            };
+            return `<tr><td class="border-b px-4 py-2">${r.c}</td><td class="border-b px-4 py-2 truncate max-w-40">${r.n}</td><td class="border-b px-2 py-2 text-right">${fmt(r.cv)}</td><td class="border-b px-2 py-2 text-right">${fmt(r.pv)}</td>${diffCell(r.cv-r.pv, false)}<td class="border-b px-2 py-2 text-right">${fmt(r.cc)}</td><td class="border-b px-2 py-2 text-right">${fmt(r.pc)}</td>${diffCell(r.cc-r.pc, true)}<td class="border-b px-2 py-2 text-right">${fmt(cCpi,1)}</td><td class="border-b px-2 py-2 text-right">${fmt(pCpi,1)}</td>${diffCell(cCpi-pCpi, true)}</tr>`;
+        }).join('');
+    }
+</script>
