@@ -445,6 +445,12 @@
                 entry.outsourcing.cost += costVal;
             });
 
+            aggregatedMap.forEach(entry => {
+                entry.total.manHours = entry.internal.manHours + entry.timee.manHours + entry.outsourcing.manHours;
+                entry.total.count = entry.internal.count + entry.timee.count + entry.outsourcing.count;
+                entry.total.cost = entry.internal.cost + entry.timee.cost + entry.outsourcing.cost;
+            });
+
             // 4. 合計計算 & データ統合（全ソースから拠点リストを作成）
             // まず作業個数データのマップを作成
             const workVolumeMap = new Map();
@@ -556,9 +562,10 @@
 
         function renderDashboard() {
             const processedData = getFilteredAndSortedData();
+            const visibleData = processedData.filter(d => !(d.baseName || '').startsWith('(名称不明'));
             const finalData = [
-                ...processedData.filter(d => pinnedBases.has(d.baseCode)),
-                ...processedData.filter(d => !pinnedBases.has(d.baseCode))
+                ...visibleData.filter(d => pinnedBases.has(d.baseCode)),
+                ...visibleData.filter(d => !pinnedBases.has(d.baseCode))
             ];
             
             renderTableHeader(); 
