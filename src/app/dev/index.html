@@ -95,8 +95,8 @@
                         <label class="text-sm font-medium text-gray-700">単位:</label>
                         <select id="viewType" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg p-2.5" onchange="updateDateOptions()">
                             <option value="daily">日次明細</option>
-                            <option value="weekly_running">週累計</option>
-                            <option value="monthly_running">月累計</option>
+                            <option value="weekly">週累計</option>
+                            <option value="monthly">月累計</option>
                         </select>
 
                         <div id="aggTypeContainer" class="hidden flex items-center space-x-2 ml-4 bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200">
@@ -110,7 +110,7 @@
                         <button id="view-button" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-sm border-transparent ml-2">表示</button>
                     </div>
                     <div class="mt-2 space-y-1">
-                        <p id="data-date" class="text-gray-500 text-sm">日付を選択してください</p>
+                        <p id="data-date" class="text-sm mt-2"></p>
                         <p id="time-range-display" class="text-gray-500 text-sm"></p>
                     </div>
                 </div>
@@ -158,7 +158,7 @@
 
                 <div class="flex items-center space-x-4 flex-wrap gap-4 bg-gray-50 p-3 rounded-lg border border-gray-200">
                     <div class="flex items-center space-x-2">
-                        <label class="text-sm font-bold text-blue-600">比較元 (Before):</label>
+                        <label class="text-sm font-bold text-orange-600">Before:</label>
                         <input type="date" id="comp-before-date" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg p-2.5">
                         <input type="month" id="comp-before-month" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg p-2.5 hidden">
                     </div>
@@ -166,7 +166,7 @@
                     <span class="font-bold text-gray-400 text-lg">VS</span>
                     
                     <div class="flex items-center space-x-2">
-                        <label class="text-sm font-bold text-orange-600">比較先 (After):</label>
+                        <label class="text-sm font-bold text-blue-600">After:</label>
                         <input type="date" id="comp-after-date" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg p-2.5">
                         <input type="month" id="comp-after-month" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg p-2.5 hidden">
                     </div>
@@ -174,7 +174,12 @@
                     <button onclick="loadPeriodData()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg shadow-sm border-transparent ml-auto">比較実行</button>
                     <button onclick="downloadComparisonCSV()" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-sm border-transparent">CSVダウンロード</button>
                 </div>
-                <p id="period-range-label" class="mt-2 text-sm text-gray-600 font-medium"></p>
+                
+                <div class="flex items-center gap-2 text-sm text-gray-600 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
+                    <span class="text-yellow-700 font-bold">⚠ 注意:</span>
+                    <span>比較データは <strong>1便（0:00 ～ 10:00）のみ</strong> を対象としています。</span>
+                </div>
+                <div id="period-range-label" class="mt-1"></div>
             </div>
 
             <div class="bg-white rounded-lg shadow-sm overflow-x-auto max-h-[80vh] border border-gray-200">
@@ -356,8 +361,26 @@
             };
         });
         
-        const displayDate = dateString.length === 7 ? `${dateString.slice(0,4)}年${dateString.slice(5,7)}月` : `${dateString.slice(0,4)}/${dateString.slice(5,7)}/${dateString.slice(8,10)}`;
-        document.getElementById('data-date').textContent = `データ対象日: ${displayDate}`;
+        let dateText = '';
+        if (isRunning && csvResult.data.length > 0 && csvResult.data[0]['期間開始']) {
+            const r = csvResult.data[0];
+            const fD = (d) => d ? d.replace(/-/g, '/') : '';
+            const typeLabel = type === 'weekly' ? '週累計' : '月累計';
+            dateText = `<span class="inline-block bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded mr-2">${typeLabel}</span>`
+                + `<span class="text-gray-500">対象期間:</span> <span class="text-gray-800 font-bold">${fD(r['期間開始'])} ～ ${fD(r['期間終了'])}</span>`
+                + ` &nbsp;｜&nbsp; <span class="text-gray-500">累計期間:</span> <span class="text-blue-700 font-bold">${fD(r['期間開始'])} ～ ${fD(r['基準日'])}</span>`
+                + ` <span class="inline-block bg-yellow-100 text-yellow-800 text-xs font-bold px-2 py-0.5 rounded ml-1">📅 ${fD(r['基準日'])}時点の累計値</span>`;
+        } else if (isRunning) {
+            const typeLabel = type === 'weekly' ? '週累計' : '月累計';
+            const displayDate = dateString.length === 7 ? `${dateString.slice(0,4)}年${dateString.slice(5,7)}月` : `${dateString.slice(0,4)}/${dateString.slice(5,7)}/${dateString.slice(8,10)}`;
+            dateText = `<span class="inline-block bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded mr-2">${typeLabel}</span>`
+                + `<span class="text-gray-500">データ対象日:</span> <span class="text-gray-800 font-bold">${displayDate}</span>`;
+        } else {
+            const displayDate = dateString.length === 7 ? `${dateString.slice(0,4)}年${dateString.slice(5,7)}月` : `${dateString.slice(0,4)}/${dateString.slice(5,7)}/${dateString.slice(8,10)}`;
+            dateText = `<span class="text-gray-500">データ対象日:</span> <span class="text-gray-800 font-bold">${displayDate}</span>`;
+        }
+        
+        document.getElementById('data-date').innerHTML = dateText;
         document.getElementById('time-range-display').textContent = `対象時間帯: ${timeRangeMap[currentFilter] || ''}`;
         renderDashboard();
     }
@@ -552,7 +575,7 @@
         
         if (!beforeVal || !afterVal) return alert('比較元 (Before) と 比較先 (After) の日付を選択してください。');
 
-        document.getElementById('period-range-label').textContent = `比較期間: [Before] ${beforeVal} vs [After] ${afterVal}`;
+        document.getElementById('period-range-label').innerHTML = `<span class="text-sm text-gray-500">比較データ取得中...</span>`;
         showLoader(true);
         try {
             const res = await googleScriptRun('getComparisonData', unit, afterVal, beforeVal);
@@ -567,6 +590,23 @@
     function renderPeriodTable(curr, prev, unit) {
         const tbody = document.getElementById('period-tbody');
         tbody.innerHTML = '';
+        
+        if (unit !== 'daily' && curr.data.length > 0 && prev.data.length > 0 && curr.data[0]['期間開始']) {
+            const cR = curr.data[0], pR = prev.data[0];
+            const fD = (d) => d ? d.replace(/-/g, '/') : '';
+            document.getElementById('period-range-label').innerHTML = `
+                <div class="flex flex-col gap-1 mt-1 p-2 bg-gray-50 rounded border border-gray-200">
+                    <div class="text-sm"><span class="text-blue-600 font-bold w-16 inline-block">[After]</span> 対象期間: <span class="font-bold text-gray-800">${fD(cR['期間開始'])} ～ ${fD(cR['期間終了'])}</span> &nbsp;｜&nbsp; 実集計: <span class="font-bold text-blue-700">${fD(cR['期間開始'])} ～ ${fD(cR['基準日'])}</span></div>
+                    <div class="text-sm"><span class="text-orange-600 font-bold w-16 inline-block">[Before]</span> 対象期間: <span class="font-bold text-gray-800">${fD(pR['期間開始'])} ～ ${fD(pR['期間終了'])}</span> &nbsp;｜&nbsp; 実集計: <span class="font-bold text-orange-700">${fD(pR['期間開始'])} ～ ${fD(pR['基準日'])}</span></div>
+                </div>
+            `;
+        } else {
+            const isMonth = unit.includes('monthly');
+            const beforeVal = isMonth ? document.getElementById('comp-before-month').value : document.getElementById('comp-before-date').value;
+            const afterVal = isMonth ? document.getElementById('comp-after-month').value : document.getElementById('comp-after-date').value;
+            document.getElementById('period-range-label').innerHTML = `<span class="text-sm text-gray-600 font-medium">比較対象: [Before] ${beforeVal} vs [After] ${afterVal}</span>`;
+        }
+
         if(!curr.data.length && !prev.data.length) {
             tbody.innerHTML = '<tr><td colspan="11" class="text-center py-8 text-gray-500">データがありません</td></tr>';
             return;
@@ -578,8 +618,9 @@
         const volKey = isDaily ? '作業個数' : `作業個数${suffix}`;
         const costKey = isDaily ? '総コスト' : `総コスト${suffix}`;
 
+        const COMPARISON_FILTER = '1便';
         const add = (r, isCur) => {
-            if(r['時間帯'] !== currentFilter) return; 
+            if(r['時間帯'] !== COMPARISON_FILTER) return; 
             const code = r['拠点コード'] || r['集約拠点コード'];
             if (!map.has(code)) map.set(code, { code: code, name: r['拠点名称'], cv:0, pv:0, cc:0, pc:0 });
             const d = map.get(code);
@@ -622,45 +663,51 @@
         });
     }
 
-    // ★ CSVダウンロード機能のヘッダーズレ修正
     function downloadComparisonCSV() {
-        const tbody = document.getElementById('period-tbody');
-        if (!tbody || tbody.innerText.includes('条件を指定して実行してください') || tbody.innerText.includes('データがありません')) {
-            alert('ダウンロードするデータがありません。先に比較を実行してください。');
-            return;
-        }
-        
-        let csvContent = "\uFEFF"; // Excel用のBOM
-        
-        // ★ 結合セルを考慮した、Excelに貼り付けやすい2段ヘッダー
-        csvContent += '"拠点コード","拠点名","作業個数 (個)","","","総コスト (円)","","","個当たり (円)","",""\n';
-        csvContent += '"","","After","Before","増減","After","Before","増減","After","Before","増減"\n';
-        
-        const rows = tbody.querySelectorAll('tr');
-        rows.forEach(row => {
-            const cols = row.querySelectorAll('td');
-            const rowData = Array.from(cols).map(col => {
-                // タイトル属性（省略前の拠点名）があればそれを採用
-                let text = col.getAttribute('title') || col.innerText;
-                text = text.replace(/"/g, '""').replace(/\n/g, ''); 
-                return `"${text}"`;
-            });
-            csvContent += rowData.join(',') + "\n";
+      const tbody = document.getElementById('period-tbody');
+      if (!tbody || tbody.innerText.includes('条件を指定して実行してください') || tbody.innerText.includes('データがありません')) {
+        alert('ダウンロードするデータがありません。先に比較を実行してください。');
+        return;
+      }
+
+      // --- 選択されている期間（週・月）を取得 ---
+      const unitSelect = document.getElementById('comp-unit');
+      const unitVal = unitSelect.value;
+      const isMonth = unitVal.includes('monthly');
+      const beforeVal = isMonth ? document.getElementById('comp-before-month').value : document.getElementById('comp-before-date').value;
+      const afterVal = isMonth ? document.getElementById('comp-after-month').value : document.getElementById('comp-after-date').value;
+      const unitName = unitSelect.options[unitSelect.selectedIndex].text.replace(/ /g, '');
+
+      let csvContent = "\uFEFF";
+      
+      // --- ファイル内に期間の記載を追加 ---
+      csvContent += `"【比較期間】","[Before] ${beforeVal}","[After] ${afterVal}","","","","","","","",""\n`;
+      csvContent += `"【対象時間帯】","1便（0:00 ～ 10:00）のみ","","","","","","","","",""\n`;
+      csvContent += '"拠点コード","拠点名","作業個数 (個)","","","総コスト (円)","","","個当たり (円)","",""\n';
+      csvContent += `"","","After(${afterVal})","Before(${beforeVal})","増減","After(${afterVal})","Before(${beforeVal})","増減","After(${afterVal})","Before(${beforeVal})","増減"\n`;
+
+      const rows = tbody.querySelectorAll('tr');
+      rows.forEach(row => {
+        const cols = row.querySelectorAll('td');
+        const rowData = Array.from(cols).map(col => {
+          let text = col.getAttribute('title') || col.innerText;
+          text = text.replace(/"/g, '""').replace(/\n/g, '');
+          return `"${text}"`;
         });
-        
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.setAttribute('href', url);
-        
-        const unitSelect = document.getElementById('comp-unit');
-        const unitName = unitSelect.options[unitSelect.selectedIndex].text.replace(/ /g, '');
-        const dateStr = new Date().toISOString().slice(0,10).replace(/-/g, '');
-        link.setAttribute('download', `比較データ_${unitName}_${dateStr}.csv`);
-        
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        csvContent += rowData.join(',') + "\n";
+      });
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+
+      // --- ファイル名に期間の記載を追加 ---
+      link.setAttribute('download', `比較データ_${unitName}_${beforeVal}_vs_${afterVal}.csv`);
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
     </script>
 </body>

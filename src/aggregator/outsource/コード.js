@@ -6,17 +6,17 @@
 function generateIntermediateFiles() {
   // --- 設定 ---
   // ★変更: 単一ファイルIDではなく、入力ファイルが格納されている「フォルダID」を指定
-  const SOURCE_FOLDER_ID = '1LGo_ct5bn6LFcNPBRRCUeFJtXm7Qx0ov';
+  const SOURCE_FOLDER_ID = '1LGo_ct5bn6LFcNPBRRCUeFJtXm7Qx0ov'; 
   const OUTPUT_FOLDER_ID = '1g38uOUeEYEau4GMcXgG18hQwmIfOqeZP'; // 中間データ格納フォルダID
   const FILE_PREFIX = '集約拠点_外部リソース_';
-
+  
   try {
     console.log('中間ファイル生成を開始します...');
-
+    
     const sourceFolder = DriveApp.getFolderById(SOURCE_FOLDER_ID);
     // Googleスプレッドシート または Excelファイル(.xlsx) を対象とする
     const files = sourceFolder.getFiles();
-
+    
     // 全ファイルのデータを日付ごとに集約するオブジェクト
     const groupedData = {};
     let fileCount = 0;
@@ -68,9 +68,9 @@ function generateIntermediateFiles() {
         dataRows.forEach(row => {
           const dateVal = row[idx.date];
           let rawBaseCode = row[idx.baseCode];
-
+          
           if (!dateVal || !rawBaseCode) return; // 必須項目がない行はスキップ
-
+          
           // 拠点コードを文字列化し、6桁0埋めを行う
           let baseCode = String(rawBaseCode).trim();
           if (/^\d+$/.test(baseCode) && baseCode.length < 6) {
@@ -79,14 +79,14 @@ function generateIntermediateFiles() {
 
           // 日付フォーマット整形
           const dateStr = Utilities.formatDate(new Date(dateVal), Session.getScriptTimeZone(), 'yyyy-MM-dd');
-
+          
           if (!groupedData[dateStr]) groupedData[dateStr] = [];
-
+          
           // 値の取得と正規化
           let count = Number(row[idx.count]) || 0;
           let hours = Number(row[idx.hours]) || 0;
-          let cost = Number(row[idx.totalPay]);
-
+          let cost = Number(row[idx.totalPay]); 
+          
           const typeName = String(row[idx.type] || '');
 
           // コスト補完ロジック
@@ -97,7 +97,7 @@ function generateIntermediateFiles() {
               cost = vol * price;
             } else if (typeName.includes('人工') && idx.hourlyWage !== -1) {
               const wage = Number(row[idx.hourlyWage]) || 0;
-              cost = hours * wage;
+              cost = hours * wage; 
             } else {
               cost = 0;
             }
@@ -130,16 +130,16 @@ function generateIntermediateFiles() {
     for (const [dateStr, lines] of Object.entries(groupedData)) {
       const fileName = `${FILE_PREFIX}${dateStr}.csv`;
       const csvContent = outputHeader + '\n' + lines.join('\n');
-
+      
       const existingFiles = folder.getFilesByName(fileName);
       while (existingFiles.hasNext()) {
         existingFiles.next().setTrashed(true);
       }
-
+      
       folder.createFile(fileName, csvContent, MimeType.CSV);
       console.log(`作成完了: ${fileName} (${lines.length}件)`);
     }
-
+    
     console.log(`全処理が完了しました。(${fileCount}ファイルを処理)`);
 
   } catch (e) {

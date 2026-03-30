@@ -1,5 +1,6 @@
 /**
- * @fileoverview 集計バッチ専用GAS (縦結合 ＆ 結合データ参照型 累計ロジック)
+ * @fileoverview 集約拠点ダッシュボード 集計バッチ専用GAS (縦結合 ＆ 結合データ参照型 累計ロジック)
+ * ※BOMに起因するパース不具合（合計と平均が同じになる問題）修正済み
  */
 
 const FOLDERS = {
@@ -101,12 +102,25 @@ function formatDate(date) { return Utilities.formatDate(date, "JST", "yyyy-MM-dd
 function formatMonth(date) { return Utilities.formatDate(date, "JST", "yyyy-MM"); }
 
 function parseBlobSafely(file) {
-    let text = file.getBlob().getDataAsString("utf-8");
-    if (!text.match(/拠点|時間|コード|社員|月/)) text = file.getBlob().getDataAsString("MS932"); 
-    const csvData = Utilities.parseCsv(text);
-    if (!csvData || csvData.length < 2) return [];
-    const headers = csvData[0].map(h => h.replace(/^\uFEFF/, '').trim());
-    return csvData.slice(1).map(row => { let obj = {}; headers.forEach((h, j) => obj[h] = row[j] ? row[j].trim() : ""); return obj; });
+  let text = file.getBlob().getDataAsString("utf-8");
+  
+  // ★修正: CSVとして解析する前に、テキスト全体からBOMを完全に除去する
+  text = text.replace(/^\uFEFF/, '');
+  
+  if (!text.match(/拠点|時間|コード|社員|月/)) {
+    text = file.getBlob().getDataAsString("MS932"); 
+  }
+  
+  const csvData = Utilities.parseCsv(text);
+  if (!csvData || csvData.length < 2) return [];
+  
+  // 先頭でBOMは消去済みなのでtrim()のみで処理
+  const headers = csvData[0].map(h => h.trim());
+  return csvData.slice(1).map(row => { 
+    let obj = {}; 
+    headers.forEach((h, j) => obj[h] = row[j] ? row[j].trim() : ""); 
+    return obj; 
+  });
 }
 
 function getCsvDataFromInputBlob(type, opts) {
@@ -157,7 +171,6 @@ function createDailyCsv(dateStr) {
     if (staffMap[s] && costMap[c] && costMap[c][staffMap[s]]) e.iv += (m/60) * costMap[c][staffMap[s]];
   });
 
-  // ★バグ修正部分: tm(タイミー)とo(外部委託)で正しく変数を割り当てつつ、列名のブレを吸収
   [ { k: 'tm', p: 'tm' }, { k: 'os', p: 'o' } ].forEach(cfg => {
     raw[cfg.k].data.forEach(r => {
       let c = r['集約拠点コード'] || r['拠点コード'], t = r['時間帯'];
@@ -226,6 +239,7 @@ function buildRunningFromConcat(concatRows, refDate, startD, endD, totalDays, fo
     if (!c || !ts) return;
     let k = `${c}-${ts}`;
     if (!periodData[k]) periodData[k] = { c, n, t: ts, dates: new Set(), entries: [] };
+    // ここで r['対象日'] が正しく取得できるようになり、dates.sizeが正確な日数になります
     periodData[k].dates.add(r['対象日']);
     periodData[k].entries.push(r);
   });
