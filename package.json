@@ -7,12 +7,21 @@
     "doc": "docs"
   },
   "scripts": {
+    "lint": "eslint \"src/**/*.js\"",
+    "lint:fix": "eslint \"src/**/*.js\" --fix",
+    "format": "prettier --write \"src/**/*.js\" \"docs/**/*.md\"",
+    "format:check": "prettier --check \"src/**/*.js\" \"docs/**/*.md\"",
     "test": "echo \"Error: no test specified\" && exit 1",
     "pull:agg-dash": "cd src/aggregator/dashboard && clasp pull",
     "pull:agg-out": "cd src/aggregator/outsource && clasp pull",
     "pull:app-dev": "cd src/app/dev && clasp pull",
     "pull:app-prod": "cd src/app/prod && clasp pull",
     "pull:all": "npm run pull:agg-dash && npm run pull:agg-out && npm run pull:app-dev && npm run pull:app-prod"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "eslint-plugin-googleappsscript": "^1.0.5",
+    "prettier": "^3.5.3"
   },
   "keywords": [],
   "author": "",
