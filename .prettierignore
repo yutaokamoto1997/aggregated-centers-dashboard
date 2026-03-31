@@ -1,0 +1,8 @@
+# Dependencies
+node_modules/
+
+# clasp settings
+**/.clasp.json
+
+# Notebook
+**/*.ipynb
