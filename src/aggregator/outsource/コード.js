@@ -45,8 +45,14 @@ function setupScriptProperties() {
 function generateIntermediateFiles() {
   // --- 設定 ---
   // ★変更: 単一ファイルIDではなく、入力ファイルが格納されている「フォルダID」を指定
-  const SOURCE_FOLDER_ID = getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.SOURCE_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.SOURCE_FOLDER_ID]);
-  const OUTPUT_FOLDER_ID = getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.OUTPUT_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.OUTPUT_FOLDER_ID]); // 中間データ格納フォルダID
+  const SOURCE_FOLDER_ID = getScriptPropertyString_(
+    SCRIPT_PROPERTY_KEYS.SOURCE_FOLDER_ID,
+    LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.SOURCE_FOLDER_ID]
+  );
+  const OUTPUT_FOLDER_ID = getScriptPropertyString_(
+    SCRIPT_PROPERTY_KEYS.OUTPUT_FOLDER_ID,
+    LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.OUTPUT_FOLDER_ID]
+  ); // 中間データ格納フォルダID
   const FILE_PREFIX = '集約拠点_外部リソース_';
 
   try {
@@ -65,7 +71,10 @@ function generateIntermediateFiles() {
       const mimeType = file.getMimeType();
 
       // スプレッドシート または Excel のみを処理対象とする
-      if (mimeType !== MimeType.GOOGLE_SHEETS && mimeType !== "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
+      if (
+        mimeType !== MimeType.GOOGLE_SHEETS &&
+        mimeType !== 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      ) {
         continue;
       }
 
@@ -104,7 +113,7 @@ function generateIntermediateFiles() {
         }
 
         // 行ごとの処理
-        dataRows.forEach(row => {
+        dataRows.forEach((row) => {
           const dateVal = row[idx.date];
           let rawBaseCode = row[idx.baseCode];
 
@@ -117,7 +126,11 @@ function generateIntermediateFiles() {
           }
 
           // 日付フォーマット整形
-          const dateStr = Utilities.formatDate(new Date(dateVal), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+          const dateStr = Utilities.formatDate(
+            new Date(dateVal),
+            Session.getScriptTimeZone(),
+            'yyyy-MM-dd'
+          );
 
           if (!groupedData[dateStr]) groupedData[dateStr] = [];
 
@@ -143,15 +156,10 @@ function generateIntermediateFiles() {
           }
 
           // 配列に追加
-          groupedData[dateStr].push([
-            baseCode,
-            row[idx.timeSlot] || '',
-            count,
-            hours,
-            cost
-          ].join(','));
+          groupedData[dateStr].push(
+            [baseCode, row[idx.timeSlot] || '', count, hours, cost].join(',')
+          );
         });
-
       } catch (fileError) {
         console.error(`ファイル読み込みエラー: ${file.getName()} - ${fileError.message}`);
       }
@@ -180,7 +188,6 @@ function generateIntermediateFiles() {
     }
 
     console.log(`全処理が完了しました。(${fileCount}ファイルを処理)`);
-
   } catch (e) {
     console.error(`中間ファイル生成エラー: ${e.message}`);
   }

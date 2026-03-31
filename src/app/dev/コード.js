@@ -57,25 +57,49 @@ function setupScriptProperties() {
 }
 
 function getLogSpreadsheetId_() {
-  return getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.LOG_SPREADSHEET_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.LOG_SPREADSHEET_ID]);
+  return getScriptPropertyString_(
+    SCRIPT_PROPERTY_KEYS.LOG_SPREADSHEET_ID,
+    LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.LOG_SPREADSHEET_ID]
+  );
 }
 
 function getLogSheetName_() {
-  return getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.LOG_SHEET_NAME, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.LOG_SHEET_NAME]);
+  return getScriptPropertyString_(
+    SCRIPT_PROPERTY_KEYS.LOG_SHEET_NAME,
+    LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.LOG_SHEET_NAME]
+  );
 }
 
 const FOLDERS = {
   output: {
-    daily:           getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.OUTPUT_DAILY_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.OUTPUT_DAILY_FOLDER_ID]),
-    weekly_full:     getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.OUTPUT_WEEKLY_FULL_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.OUTPUT_WEEKLY_FULL_FOLDER_ID]),
-    monthly_full:    getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.OUTPUT_MONTHLY_FULL_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.OUTPUT_MONTHLY_FULL_FOLDER_ID]),
-    weekly_running:  getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.OUTPUT_WEEKLY_RUNNING_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.OUTPUT_WEEKLY_RUNNING_FOLDER_ID]),
-    monthly_running: getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.OUTPUT_MONTHLY_RUNNING_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.OUTPUT_MONTHLY_RUNNING_FOLDER_ID])
+    daily: getScriptPropertyString_(
+      SCRIPT_PROPERTY_KEYS.OUTPUT_DAILY_FOLDER_ID,
+      LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.OUTPUT_DAILY_FOLDER_ID]
+    ),
+    weekly_full: getScriptPropertyString_(
+      SCRIPT_PROPERTY_KEYS.OUTPUT_WEEKLY_FULL_FOLDER_ID,
+      LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.OUTPUT_WEEKLY_FULL_FOLDER_ID]
+    ),
+    monthly_full: getScriptPropertyString_(
+      SCRIPT_PROPERTY_KEYS.OUTPUT_MONTHLY_FULL_FOLDER_ID,
+      LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.OUTPUT_MONTHLY_FULL_FOLDER_ID]
+    ),
+    weekly_running: getScriptPropertyString_(
+      SCRIPT_PROPERTY_KEYS.OUTPUT_WEEKLY_RUNNING_FOLDER_ID,
+      LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.OUTPUT_WEEKLY_RUNNING_FOLDER_ID]
+    ),
+    monthly_running: getScriptPropertyString_(
+      SCRIPT_PROPERTY_KEYS.OUTPUT_MONTHLY_RUNNING_FOLDER_ID,
+      LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.OUTPUT_MONTHLY_RUNNING_FOLDER_ID]
+    )
   },
   input: {
     cost: {
       prefix: 'YTCBIZ人的コスト_歴月収支有_抜粋版_',
-      id: getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.INPUT_COST_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.INPUT_COST_FOLDER_ID])
+      id: getScriptPropertyString_(
+        SCRIPT_PROPERTY_KEYS.INPUT_COST_FOLDER_ID,
+        LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.INPUT_COST_FOLDER_ID]
+      )
     }
   }
 };
@@ -89,7 +113,9 @@ const CSV_PREFIX = {
 };
 
 function doGet(e) {
-  try { logAccess(e, 'doGet'); } catch(e) {}
+  try {
+    logAccess(e, 'doGet');
+  } catch (e) {}
   const html = HtmlService.createTemplateFromFile('index').evaluate();
   html.setTitle('大型拠点ダッシュボード');
   html.setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
@@ -114,23 +140,48 @@ function getWebAppInitialData() {
     const costFileName = getLatestCostFileName();
 
     if (!dates.daily || dates.daily.length === 0) {
-      return { availableDates: { daily: [], weekly: [], monthly: [] }, initialData: null, summaryNotes, costFileName, error: 'データが見つかりません。バッチを実行してください。' };
+      return {
+        availableDates: { daily: [], weekly: [], monthly: [] },
+        initialData: null,
+        summaryNotes,
+        costFileName,
+        error: 'データが見つかりません。バッチを実行してください。'
+      };
     }
-    return { availableDates: dates, initialData: getCsvData('daily', dates.daily[0]), summaryNotes, costFileName };
-  } catch (error) { return { error: `初期化エラー: ${error.message}` }; }
+    return {
+      availableDates: dates,
+      initialData: getCsvData('daily', dates.daily[0]),
+      summaryNotes,
+      costFileName
+    };
+  } catch (error) {
+    return { error: `初期化エラー: ${error.message}` };
+  }
 }
 
-function getDailyCsvData(d) { return getCsvData('daily', d); }
-function getWeeklyRunningData(d) { return getCsvData('weekly_running', d); }
-function getMonthlyRunningData(d) { return getCsvData('monthly_running', d); }
+function getDailyCsvData(d) {
+  return getCsvData('daily', d);
+}
+function getWeeklyRunningData(d) {
+  return getCsvData('weekly_running', d);
+}
+function getMonthlyRunningData(d) {
+  return getCsvData('monthly_running', d);
+}
 
 function getCsvData(type, dateStr) {
-  return parseCsvFromDrive(DriveApp.getFolderById(FOLDERS.output[type]), `${CSV_PREFIX[type]}${dateStr}.csv`);
+  return parseCsvFromDrive(
+    DriveApp.getFolderById(FOLDERS.output[type]),
+    `${CSV_PREFIX[type]}${dateStr}.csv`
+  );
 }
 
 // ★改修: 集計単位(folderKey)を動的に受け取ってデータを返すように変更
 function getComparisonData(folderKey, currentStart, previousStart) {
-  return { current: getCsvData(folderKey, currentStart), previous: getCsvData(folderKey, previousStart) };
+  return {
+    current: getCsvData(folderKey, currentStart),
+    previous: getCsvData(folderKey, previousStart)
+  };
 }
 
 function getAllAvailableDates() {
@@ -138,7 +189,10 @@ function getAllAvailableDates() {
     const files = DriveApp.getFolderById(FOLDERS.output[type]).getFiles();
     const dates = new Set();
     const regex = type.includes('monthly') ? /(\d{4}-\d{2})\.csv$/ : /(\d{4}-\d{2}-\d{2})\.csv$/;
-    while (files.hasNext()) { const m = files.next().getName().match(regex); if (m) dates.add(m[1]); }
+    while (files.hasNext()) {
+      const m = files.next().getName().match(regex);
+      if (m) dates.add(m[1]);
+    }
     return Array.from(dates).sort((a, b) => b.localeCompare(a));
   };
   return { daily: getD('daily'), weekly: getD('weekly_running'), monthly: getD('monthly_running') };
@@ -146,10 +200,18 @@ function getAllAvailableDates() {
 
 function getLatestCostFileName() {
   const files = DriveApp.getFolderById(FOLDERS.input.cost.id).getFiles();
-  let latestFile = null, maxDate = new Date(0);
-  while(files.hasNext()){
+  let latestFile = null,
+    maxDate = new Date(0);
+  while (files.hasNext()) {
     const f = files.next();
-    if(f.getName().startsWith(FOLDERS.input.cost.prefix) && f.getName().endsWith('.csv') && f.getLastUpdated() > maxDate) { maxDate = f.getLastUpdated(); latestFile = f; }
+    if (
+      f.getName().startsWith(FOLDERS.input.cost.prefix) &&
+      f.getName().endsWith('.csv') &&
+      f.getLastUpdated() > maxDate
+    ) {
+      maxDate = f.getLastUpdated();
+      latestFile = f;
+    }
   }
   return latestFile ? latestFile.getName() : null;
 }
@@ -158,20 +220,44 @@ function parseCsvFromDrive(folder, fileName) {
   try {
     const files = folder.getFilesByName(fileName);
     if (!files.hasNext()) return { headers: [], data: [] };
-    let blob = files.next().getBlob(), csvString = blob.getDataAsString('UTF-8').replace(/^\uFEFF/, '');
+    let blob = files.next().getBlob(),
+      csvString = blob.getDataAsString('UTF-8').replace(/^\uFEFF/, '');
     let parsed = Utilities.parseCsv(csvString);
     if (!/拠点|時間|コード|社員|月/.test(parsed[0] ? parsed[0].join('') : '')) {
-      try { const sjis = Utilities.parseCsv(blob.getDataAsString('Shift_JIS')); if (/拠点|時間|コード|社員|月/.test(sjis[0].join(''))) parsed = sjis; } catch(e) {}
+      try {
+        const sjis = Utilities.parseCsv(blob.getDataAsString('Shift_JIS'));
+        if (/拠点|時間|コード|社員|月/.test(sjis[0].join(''))) parsed = sjis;
+      } catch (e) {}
     }
     if (!parsed || parsed.length < 1) return { headers: [], data: [] };
-    const headers = parsed[0].map(h => String(h).replace(/^\uFEFF/, '').trim());
-    return { headers, data: parsed.slice(1).map(row => { const obj = {}; headers.forEach((h, i) => obj[h] = row[i] ? String(row[i]).trim() : ''); return obj; }) };
-  } catch (e) { return { headers: [], data: [] }; }
+    const headers = parsed[0].map((h) =>
+      String(h)
+        .replace(/^\uFEFF/, '')
+        .trim()
+    );
+    return {
+      headers,
+      data: parsed.slice(1).map((row) => {
+        const obj = {};
+        headers.forEach((h, i) => (obj[h] = row[i] ? String(row[i]).trim() : ''));
+        return obj;
+      })
+    };
+  } catch (e) {
+    return { headers: [], data: [] };
+  }
 }
 
 function logAccess(e, funcName) {
   try {
-    const sheet = SpreadsheetApp.openById(getLogSpreadsheetId_()).getSheetByName(getLogSheetName_());
-    if(sheet) sheet.appendRow([new Date(), Session.getActiveUser().getEmail() || Session.getEffectiveUser().getEmail(), funcName, (e&&e.parameter)?JSON.stringify(e.parameter):'{}']);
-  } catch(err) {}
+    const sheet =
+      SpreadsheetApp.openById(getLogSpreadsheetId_()).getSheetByName(getLogSheetName_());
+    if (sheet)
+      sheet.appendRow([
+        new Date(),
+        Session.getActiveUser().getEmail() || Session.getEffectiveUser().getEmail(),
+        funcName,
+        e && e.parameter ? JSON.stringify(e.parameter) : '{}'
+      ]);
+  } catch (err) {}
 }
