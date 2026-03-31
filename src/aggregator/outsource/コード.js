@@ -3,20 +3,59 @@
  * 対象: 指定フォルダ内の全てのスプレッドシート/Excelファイル
  * 機能: 複数ファイルのデータを日付ごとにマージし、拠点コード0埋め・コスト補完を行う
  */
+
+// NOTE: 稼働中のバッチのため、移行期間は「Script Properties 未設定でも動く」ように
+//       既存値へフォールバックします。プロパティ設定が完了したらフォールバックを削除してください。
+const SCRIPT_PROPERTY_KEYS = {
+  SOURCE_FOLDER_ID: 'OUTSOURCE_SOURCE_FOLDER_ID',
+  OUTPUT_FOLDER_ID: 'OUTSOURCE_OUTPUT_FOLDER_ID'
+};
+
+const LEGACY_CONFIG = {
+  [SCRIPT_PROPERTY_KEYS.SOURCE_FOLDER_ID]: '1LGo_ct5bn6LFcNPBRRCUeFJtXm7Qx0ov',
+  [SCRIPT_PROPERTY_KEYS.OUTPUT_FOLDER_ID]: '1g38uOUeEYEau4GMcXgG18hQwmIfOqeZP'
+};
+
+function getScriptPropertyString_(key, fallback) {
+  const value = PropertiesService.getScriptProperties().getProperty(key);
+  if (value !== null && value !== '') return value;
+  if (fallback !== undefined && fallback !== null && fallback !== '') {
+    console.warn(`Script property "${key}" is not set. Falling back to legacy value.`);
+    return fallback;
+  }
+  throw new Error(`Missing required script property: ${key}`);
+}
+
+function setupScriptProperties() {
+  const props = PropertiesService.getScriptProperties();
+  const result = { set: [], skipped: [] };
+  Object.keys(LEGACY_CONFIG).forEach((key) => {
+    const current = props.getProperty(key);
+    if (current === null || current === '') {
+      props.setProperty(key, String(LEGACY_CONFIG[key]));
+      result.set.push(key);
+    } else {
+      result.skipped.push(key);
+    }
+  });
+  console.log(JSON.stringify(result));
+  return result;
+}
+
 function generateIntermediateFiles() {
   // --- 設定 ---
   // ★変更: 単一ファイルIDではなく、入力ファイルが格納されている「フォルダID」を指定
-  const SOURCE_FOLDER_ID = '1LGo_ct5bn6LFcNPBRRCUeFJtXm7Qx0ov'; 
-  const OUTPUT_FOLDER_ID = '1g38uOUeEYEau4GMcXgG18hQwmIfOqeZP'; // 中間データ格納フォルダID
+  const SOURCE_FOLDER_ID = getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.SOURCE_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.SOURCE_FOLDER_ID]);
+  const OUTPUT_FOLDER_ID = getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.OUTPUT_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.OUTPUT_FOLDER_ID]); // 中間データ格納フォルダID
   const FILE_PREFIX = '集約拠点_外部リソース_';
-  
+
   try {
     console.log('中間ファイル生成を開始します...');
-    
+
     const sourceFolder = DriveApp.getFolderById(SOURCE_FOLDER_ID);
     // Googleスプレッドシート または Excelファイル(.xlsx) を対象とする
     const files = sourceFolder.getFiles();
-    
+
     // 全ファイルのデータを日付ごとに集約するオブジェクト
     const groupedData = {};
     let fileCount = 0;
@@ -68,9 +107,9 @@ function generateIntermediateFiles() {
         dataRows.forEach(row => {
           const dateVal = row[idx.date];
           let rawBaseCode = row[idx.baseCode];
-          
+
           if (!dateVal || !rawBaseCode) return; // 必須項目がない行はスキップ
-          
+
           // 拠点コードを文字列化し、6桁0埋めを行う
           let baseCode = String(rawBaseCode).trim();
           if (/^\d+$/.test(baseCode) && baseCode.length < 6) {
@@ -79,14 +118,14 @@ function generateIntermediateFiles() {
 
           // 日付フォーマット整形
           const dateStr = Utilities.formatDate(new Date(dateVal), Session.getScriptTimeZone(), 'yyyy-MM-dd');
-          
+
           if (!groupedData[dateStr]) groupedData[dateStr] = [];
-          
+
           // 値の取得と正規化
           let count = Number(row[idx.count]) || 0;
           let hours = Number(row[idx.hours]) || 0;
-          let cost = Number(row[idx.totalPay]); 
-          
+          let cost = Number(row[idx.totalPay]);
+
           const typeName = String(row[idx.type] || '');
 
           // コスト補完ロジック
@@ -97,7 +136,7 @@ function generateIntermediateFiles() {
               cost = vol * price;
             } else if (typeName.includes('人工') && idx.hourlyWage !== -1) {
               const wage = Number(row[idx.hourlyWage]) || 0;
-              cost = hours * wage; 
+              cost = hours * wage;
             } else {
               cost = 0;
             }
@@ -130,16 +169,16 @@ function generateIntermediateFiles() {
     for (const [dateStr, lines] of Object.entries(groupedData)) {
       const fileName = `${FILE_PREFIX}${dateStr}.csv`;
       const csvContent = outputHeader + '\n' + lines.join('\n');
-      
+
       const existingFiles = folder.getFilesByName(fileName);
       while (existingFiles.hasNext()) {
         existingFiles.next().setTrashed(true);
       }
-      
+
       folder.createFile(fileName, csvContent, MimeType.CSV);
       console.log(`作成完了: ${fileName} (${lines.length}件)`);
     }
-    
+
     console.log(`全処理が完了しました。(${fileCount}ファイルを処理)`);
 
   } catch (e) {

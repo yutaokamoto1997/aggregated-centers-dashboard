@@ -3,20 +3,76 @@
  * ※BOMに起因するパース不具合（合計と平均が同じになる問題）修正済み
  */
 
+// NOTE: 稼働中のバッチのため、移行期間は「Script Properties 未設定でも動く」ように
+//       既存値へフォールバックします。プロパティ設定が完了したらフォールバックを削除してください。
+const SCRIPT_PROPERTY_KEYS = {
+  OUTPUT_DAILY_FOLDER_ID: 'OUTPUT_DAILY_FOLDER_ID',
+  OUTPUT_WEEKLY_FULL_FOLDER_ID: 'OUTPUT_WEEKLY_FULL_FOLDER_ID',
+  OUTPUT_MONTHLY_FULL_FOLDER_ID: 'OUTPUT_MONTHLY_FULL_FOLDER_ID',
+  OUTPUT_WEEKLY_RUNNING_FOLDER_ID: 'OUTPUT_WEEKLY_RUNNING_FOLDER_ID',
+  OUTPUT_MONTHLY_RUNNING_FOLDER_ID: 'OUTPUT_MONTHLY_RUNNING_FOLDER_ID',
+
+  INPUT_WORKVOLUME_FOLDER_ID: 'INPUT_WORKVOLUME_FOLDER_ID',
+  INPUT_MANPOWER_FOLDER_ID: 'INPUT_MANPOWER_FOLDER_ID',
+  INPUT_OUTSOURCING_FOLDER_ID: 'INPUT_OUTSOURCING_FOLDER_ID',
+  INPUT_COST_FOLDER_ID: 'INPUT_COST_FOLDER_ID',
+  INPUT_TIMEE_FOLDER_ID: 'INPUT_TIMEE_FOLDER_ID'
+};
+
+const LEGACY_CONFIG = {
+  [SCRIPT_PROPERTY_KEYS.OUTPUT_DAILY_FOLDER_ID]: '1VOUIgT45cVMiP4JYp8o7yiQkTQEwKl4K',
+  [SCRIPT_PROPERTY_KEYS.OUTPUT_WEEKLY_FULL_FOLDER_ID]: '1k3cJB1Rn4DwXIBg-DKhO80HiXxJKP4oG',
+  [SCRIPT_PROPERTY_KEYS.OUTPUT_MONTHLY_FULL_FOLDER_ID]: '17JzLXnliEYHSqpAbjVbwKThUYGzvVJu8',
+  [SCRIPT_PROPERTY_KEYS.OUTPUT_WEEKLY_RUNNING_FOLDER_ID]: '1LgUwCFQe1nl5_ktnpA7o6Q52B0Wh5rfk',
+  [SCRIPT_PROPERTY_KEYS.OUTPUT_MONTHLY_RUNNING_FOLDER_ID]: '1imvPQkJHRApG2Qk2VTVDy2teemLRahbc',
+
+  [SCRIPT_PROPERTY_KEYS.INPUT_WORKVOLUME_FOLDER_ID]: '1llD95sgV5c7Cg_OiWOjTQz3NBb1gFyWO',
+  [SCRIPT_PROPERTY_KEYS.INPUT_MANPOWER_FOLDER_ID]: '1HIrPENYqUB7U1jJq9WXstsVuKYO51hqB',
+  [SCRIPT_PROPERTY_KEYS.INPUT_OUTSOURCING_FOLDER_ID]: '1g38uOUeEYEau4GMcXgG18hQwmIfOqeZP',
+  [SCRIPT_PROPERTY_KEYS.INPUT_COST_FOLDER_ID]: '17Z5k-DPJIR9nYMjPtRBq1PmBJonP9lLO',
+  [SCRIPT_PROPERTY_KEYS.INPUT_TIMEE_FOLDER_ID]: '1yl8nnhWL_U7kUYZEU4ewXN0Nr9I1sp8I'
+};
+
+function getScriptPropertyString_(key, fallback) {
+  const value = PropertiesService.getScriptProperties().getProperty(key);
+  if (value !== null && value !== '') return value;
+  if (fallback !== undefined && fallback !== null && fallback !== '') {
+    console.warn(`Script property "${key}" is not set. Falling back to legacy value.`);
+    return fallback;
+  }
+  throw new Error(`Missing required script property: ${key}`);
+}
+
+function setupScriptProperties() {
+  const props = PropertiesService.getScriptProperties();
+  const result = { set: [], skipped: [] };
+  Object.keys(LEGACY_CONFIG).forEach((key) => {
+    const current = props.getProperty(key);
+    if (current === null || current === '') {
+      props.setProperty(key, String(LEGACY_CONFIG[key]));
+      result.set.push(key);
+    } else {
+      result.skipped.push(key);
+    }
+  });
+  console.log(JSON.stringify(result));
+  return result;
+}
+
 const FOLDERS = {
   output: {
-    daily:           '1VOUIgT45cVMiP4JYp8o7yiQkTQEwKl4K',
-    weekly_full:     '1k3cJB1Rn4DwXIBg-DKhO80HiXxJKP4oG',
-    monthly_full:    '17JzLXnliEYHSqpAbjVbwKThUYGzvVJu8',
-    weekly_running:  '1LgUwCFQe1nl5_ktnpA7o6Q52B0Wh5rfk',
-    monthly_running: '1imvPQkJHRApG2Qk2VTVDy2teemLRahbc'
+    daily:           getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.OUTPUT_DAILY_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.OUTPUT_DAILY_FOLDER_ID]),
+    weekly_full:     getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.OUTPUT_WEEKLY_FULL_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.OUTPUT_WEEKLY_FULL_FOLDER_ID]),
+    monthly_full:    getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.OUTPUT_MONTHLY_FULL_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.OUTPUT_MONTHLY_FULL_FOLDER_ID]),
+    weekly_running:  getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.OUTPUT_WEEKLY_RUNNING_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.OUTPUT_WEEKLY_RUNNING_FOLDER_ID]),
+    monthly_running: getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.OUTPUT_MONTHLY_RUNNING_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.OUTPUT_MONTHLY_RUNNING_FOLDER_ID])
   },
   input: {
-    workVolume:  { prefix: '集約拠点_作業個数_時間帯別_',       id: '1llD95sgV5c7Cg_OiWOjTQz3NBb1gFyWO' },
-    manpower:    { prefix: '集約拠点_人員数_投入時間_時間帯別_', id: '1HIrPENYqUB7U1jJq9WXstsVuKYO51hqB' },
-    outsourcing: { prefix: '集約拠点_外部リソース_',             id: '1g38uOUeEYEau4GMcXgG18hQwmIfOqeZP' },
-    cost:        { prefix: 'YTCBIZ人的コスト_歴月収支有_抜粋版_', id: '17Z5k-DPJIR9nYMjPtRBq1PmBJonP9lLO' },
-    timee:       { prefix: '', suffix: '_タイミー実績.csv',   id: '1yl8nnhWL_U7kUYZEU4ewXN0Nr9I1sp8I' }
+    workVolume:  { prefix: '集約拠点_作業個数_時間帯別_',       id: getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.INPUT_WORKVOLUME_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.INPUT_WORKVOLUME_FOLDER_ID]) },
+    manpower:    { prefix: '集約拠点_人員数_投入時間_時間帯別_', id: getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.INPUT_MANPOWER_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.INPUT_MANPOWER_FOLDER_ID]) },
+    outsourcing: { prefix: '集約拠点_外部リソース_',             id: getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.INPUT_OUTSOURCING_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.INPUT_OUTSOURCING_FOLDER_ID]) },
+    cost:        { prefix: 'YTCBIZ人的コスト_歴月収支有_抜粋版_', id: getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.INPUT_COST_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.INPUT_COST_FOLDER_ID]) },
+    timee:       { prefix: '', suffix: '_タイミー実績.csv',   id: getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.INPUT_TIMEE_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.INPUT_TIMEE_FOLDER_ID]) }
   }
 };
 
@@ -39,16 +95,16 @@ function runDailyAggregation() {
 
 function processSingleDayBatch(dateStr) {
   try {
-    createDailyCsv(dateStr);     
-    updatePeriodTotals(dateStr); 
+    createDailyCsv(dateStr);
+    updatePeriodTotals(dateStr);
     console.log(`${dateStr} 完了`);
   } catch (e) { console.error(`${dateStr} 失敗: ${e.message}`); }
 }
 
 function runAggregationForSpecificPeriod() {
-  const TARGET_START = '2026-01-01'; 
-  const TARGET_END   = '2026-03-31'; 
-  
+  const TARGET_START = '2026-01-01';
+  const TARGET_END   = '2026-03-31';
+
   const SCRIPT_START_TIME = new Date().getTime();
   const PROCESSED_DATES_KEY = 'AGG_PROCESSED_DATES_PERIOD';
   const TRIGGER_FUNC = 'runAggregationForSpecificPeriod';
@@ -57,7 +113,7 @@ function runAggregationForSpecificPeriod() {
   const dates = new Set(), regex = new RegExp(`^${FOLDERS.input.workVolume.prefix}(\\d{4}-\\d{2}-\\d{2})\\.csv$`);
   while (files.hasNext()) { const m = files.next().getName().match(regex); if (m) dates.add(m[1]); }
   const allDates = Array.from(dates).sort();
-  
+
   const targetDates = allDates.filter(d => d >= TARGET_START && d <= TARGET_END);
   if (targetDates.length === 0) return console.log(`指定期間 (${TARGET_START} ～ ${TARGET_END}) のデータが見つかりません。`);
 
@@ -82,12 +138,12 @@ function runAggregationForSpecificPeriod() {
       console.log(`処理中: ${pending[i]}`);
       processSingleDayBatch(pending[i]);
       processed.push(pending[i]);
-    } catch (e) { 
+    } catch (e) {
       console.error(`エラー ${pending[i]}: ${e.message}`);
-      processed.push(pending[i]); 
+      processed.push(pending[i]);
     }
   }
-  
+
   props.deleteProperty(PROCESSED_DATES_KEY);
   ScriptApp.getProjectTriggers().forEach(t => { if (t.getHandlerFunction() === TRIGGER_FUNC) ScriptApp.deleteTrigger(t); });
   console.log(`★ 指定期間 (${TARGET_START} ～ ${TARGET_END}) 全完了！`);
@@ -103,23 +159,23 @@ function formatMonth(date) { return Utilities.formatDate(date, "JST", "yyyy-MM")
 
 function parseBlobSafely(file) {
   let text = file.getBlob().getDataAsString("utf-8");
-  
+
   // ★修正: CSVとして解析する前に、テキスト全体からBOMを完全に除去する
   text = text.replace(/^\uFEFF/, '');
-  
+
   if (!text.match(/拠点|時間|コード|社員|月/)) {
-    text = file.getBlob().getDataAsString("MS932"); 
+    text = file.getBlob().getDataAsString("MS932");
   }
-  
+
   const csvData = Utilities.parseCsv(text);
   if (!csvData || csvData.length < 2) return [];
-  
+
   // 先頭でBOMは消去済みなのでtrim()のみで処理
   const headers = csvData[0].map(h => h.trim());
-  return csvData.slice(1).map(row => { 
-    let obj = {}; 
-    headers.forEach((h, j) => obj[h] = row[j] ? row[j].trim() : ""); 
-    return obj; 
+  return csvData.slice(1).map(row => {
+    let obj = {};
+    headers.forEach((h, j) => obj[h] = row[j] ? row[j].trim() : "");
+    return obj;
   });
 }
 
@@ -188,9 +244,9 @@ function createDailyCsv(dateStr) {
   [...new Set([...Object.keys(volMap), ...Object.keys(aggMap)])].forEach(k => {
     let [c, t] = k.split('-'), n = nameMap[c] || `(名称不明:${c})`;
     let vol = volMap[k] || 0, e = aggMap[k] || {ih:0,ic:0,iv:0, tmh:0,tmc:0,tmv:0, oh:0,oc:0,ov:0};
-    
+
     if (vol === 0 && e.ih === 0 && e.ic === 0 && e.oh === 0 && e.oc === 0) return;
-    
+
     let th = e.ih + e.tmh + e.oh, tc = e.ic + e.tmc + e.oc, tv = e.iv + e.tmv + e.ov;
     rows.push([dateStr, c, n, t, vol, th.toFixed(1), e.ih.toFixed(1), e.tmh.toFixed(1), e.oh.toFixed(1), tc, e.ic, e.tmc, e.oc, Math.round(tv), Math.round(e.iv), Math.round(e.tmv), Math.round(e.ov), (vol>0?tv/vol:0).toFixed(1), raw.cost.name]);
   });
@@ -232,9 +288,9 @@ function concatDailyFiles(dateList, folderId, fileName) {
 
 function buildRunningFromConcat(concatRows, refDate, startD, endD, totalDays, folderId, prefix, filenameDate) {
   const periodData = {};
-  
+
   concatRows.forEach(r => {
-    if (r['対象日'] > refDate) return; 
+    if (r['対象日'] > refDate) return;
     let c = r['拠点コード'], ts = r['時間帯'], n = r['拠点名称'];
     if (!c || !ts) return;
     let k = `${c}-${ts}`;
