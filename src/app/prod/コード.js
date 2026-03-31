@@ -3,37 +3,90 @@
  */
 
 // --- 設定エリア ---
-const LOG_SPREADSHEET_ID = '1FVty5A8B18DrJIzXhKde16-5pBcNsU5E4XYe8EeJjjA';
-const LOG_SHEET_NAME = 'アクセスログ';
+// NOTE: 本番稼働中のため、移行期間は「Script Properties 未設定でも動く」ように
+//       既存値へフォールバックします。プロパティ設定が完了したらフォールバックを削除してください。
+const SCRIPT_PROPERTY_KEYS = {
+  LOG_SPREADSHEET_ID: 'LOG_SPREADSHEET_ID',
+  LOG_SHEET_NAME: 'LOG_SHEET_NAME',
+  INPUT_WORKVOLUME_FOLDER_ID: 'INPUT_WORKVOLUME_FOLDER_ID',
+  INPUT_MANPOWER_FOLDER_ID: 'INPUT_MANPOWER_FOLDER_ID',
+  INPUT_OUTSOURCING_FOLDER_ID: 'INPUT_OUTSOURCING_FOLDER_ID',
+  INPUT_COST_FOLDER_ID: 'INPUT_COST_FOLDER_ID',
+  INPUT_TIMEE_FOLDER_ID: 'INPUT_TIMEE_FOLDER_ID'
+};
+
+const LEGACY_CONFIG = {
+  [SCRIPT_PROPERTY_KEYS.LOG_SPREADSHEET_ID]: '1FVty5A8B18DrJIzXhKde16-5pBcNsU5E4XYe8EeJjjA',
+  [SCRIPT_PROPERTY_KEYS.LOG_SHEET_NAME]: 'アクセスログ',
+  [SCRIPT_PROPERTY_KEYS.INPUT_WORKVOLUME_FOLDER_ID]: '1llD95sgV5c7Cg_OiWOjTQz3NBb1gFyWO',
+  [SCRIPT_PROPERTY_KEYS.INPUT_MANPOWER_FOLDER_ID]: '1HIrPENYqUB7U1jJq9WXstsVuKYO51hqB',
+  [SCRIPT_PROPERTY_KEYS.INPUT_OUTSOURCING_FOLDER_ID]: '1g38uOUeEYEau4GMcXgG18hQwmIfOqeZP',
+  [SCRIPT_PROPERTY_KEYS.INPUT_COST_FOLDER_ID]: '17Z5k-DPJIR9nYMjPtRBq1PmBJonP9lLO',
+  [SCRIPT_PROPERTY_KEYS.INPUT_TIMEE_FOLDER_ID]: '1yl8nnhWL_U7kUYZEU4ewXN0Nr9I1sp8I'
+};
+
+function getScriptPropertyString_(key, fallback) {
+  const value = PropertiesService.getScriptProperties().getProperty(key);
+  if (value !== null && value !== '') return value;
+  if (fallback !== undefined && fallback !== null && fallback !== '') {
+    console.warn(`Script property "${key}" is not set. Falling back to legacy value.`);
+    return fallback;
+  }
+  throw new Error(`Missing required script property: ${key}`);
+}
+
+function setupScriptProperties() {
+  const props = PropertiesService.getScriptProperties();
+  const result = { set: [], skipped: [] };
+  Object.keys(LEGACY_CONFIG).forEach((key) => {
+    const current = props.getProperty(key);
+    if (current === null || current === '') {
+      props.setProperty(key, String(LEGACY_CONFIG[key]));
+      result.set.push(key);
+    } else {
+      result.skipped.push(key);
+    }
+  });
+  console.log(JSON.stringify(result));
+  return result;
+}
+
+function getLogSpreadsheetId_() {
+  return getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.LOG_SPREADSHEET_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.LOG_SPREADSHEET_ID]);
+}
+
+function getLogSheetName_() {
+  return getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.LOG_SHEET_NAME, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.LOG_SHEET_NAME]);
+}
 
 // 各種データファイルの定義
 const FILE_DEFINITIONS = {
-  workVolume: { 
-    prefix: '集約拠点_作業個数_時間帯別_', 
+  workVolume: {
+    prefix: '集約拠点_作業個数_時間帯別_',
     key: 'workVolumeData',
-    folderId: '1llD95sgV5c7Cg_OiWOjTQz3NBb1gFyWO'
+    folderId: getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.INPUT_WORKVOLUME_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.INPUT_WORKVOLUME_FOLDER_ID])
   },
-  manpower: { 
-    prefix: '集約拠点_人員数_投入時間_時間帯別_', 
+  manpower: {
+    prefix: '集約拠点_人員数_投入時間_時間帯別_',
     key: 'manpowerData',
-    folderId: '1HIrPENYqUB7U1jJq9WXstsVuKYO51hqB'
+    folderId: getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.INPUT_MANPOWER_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.INPUT_MANPOWER_FOLDER_ID])
   },
   // 【追加】外部リソース（派遣・委託）用の中間データ設定
   outsourcing: {
     prefix: '集約拠点_外部リソース_',
     key: 'outsourcingData',
-    folderId: '1g38uOUeEYEau4GMcXgG18hQwmIfOqeZP'
+    folderId: getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.INPUT_OUTSOURCING_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.INPUT_OUTSOURCING_FOLDER_ID])
   },
-  cost: { 
-    prefix: 'YTCBIZ人的コスト_歴月収支有_抜粋版_', 
+  cost: {
+    prefix: 'YTCBIZ人的コスト_歴月収支有_抜粋版_',
     key: 'costData',
-    folderId: '17Z5k-DPJIR9nYMjPtRBq1PmBJonP9lLO'
+    folderId: getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.INPUT_COST_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.INPUT_COST_FOLDER_ID])
   },
   timee: {
     // Pythonで生成されたファイル (yyyymmdd_タイミー実績.csv)
-    folderId: '1yl8nnhWL_U7kUYZEU4ewXN0Nr9I1sp8I',
+    folderId: getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.INPUT_TIMEE_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.INPUT_TIMEE_FOLDER_ID]),
     key: 'timeeData',
-    suffix: '_タイミー実績.csv' 
+    suffix: '_タイミー実績.csv'
   }
 };
 const FILENAME_SUFFIX = '.csv';
@@ -43,7 +96,7 @@ const FILENAME_SUFFIX = '.csv';
  */
 function doGet(e) {
   try {
-    logAccess(e, 'doGet', LOG_SPREADSHEET_ID, LOG_SHEET_NAME);
+    logAccess(e, 'doGet', getLogSpreadsheetId_(), getLogSheetName_());
   } catch(logError) {
     console.error(`ログ記録エラー: ${logError}`);
   }
@@ -77,31 +130,31 @@ function getSummaryNotes() {
  */
 function getWebAppInitialData() {
   try {
-    const availableDates = getAvailableDates(); 
-    const summaryNotes = getSummaryNotes(); 
+    const availableDates = getAvailableDates();
+    const summaryNotes = getSummaryNotes();
 
     if (availableDates.length === 0) {
-      return { 
-        availableDates: [], 
-        initialData: null, 
-        summaryNotes: summaryNotes, 
-        error: 'データフォルダに日付付きのファイルが見つかりません。' 
+      return {
+        availableDates: [],
+        initialData: null,
+        summaryNotes: summaryNotes,
+        error: 'データフォルダに日付付きのファイルが見つかりません。'
       };
     }
-    
+
     // 最新の日付データを取得
-    const latestDate = availableDates[0]; 
+    const latestDate = availableDates[0];
     const initialData = getDataForDate(latestDate);
-    
-    return { availableDates, initialData, summaryNotes }; 
+
+    return { availableDates, initialData, summaryNotes };
 
   } catch (error) {
     console.error(`初期化エラー: ${error.stack}`);
-    return { 
-      availableDates: [], 
-      initialData: null, 
-      summaryNotes: getSummaryNotes(), 
-      error: `初期データの読み込みに失敗しました: ${error.message}` 
+    return {
+      availableDates: [],
+      initialData: null,
+      summaryNotes: getSummaryNotes(),
+      error: `初期データの読み込みに失敗しました: ${error.message}`
     };
   }
 }
@@ -114,17 +167,17 @@ function getDataForDate(dateString) {
   if (!dateString || !/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
     throw new Error('無効な日付形式です。YYYY-MM-DD形式で指定してください。');
   }
-  
+
   const data = {};
 
   // 1. 通常の日次データ取得 (workVolume, manpower, outsourcing)
   ['workVolume', 'manpower', 'outsourcing'].forEach(key => {
     const def = FILE_DEFINITIONS[key];
     const folder = DriveApp.getFolderById(def.folderId);
-    const fileName = `${def.prefix}${dateString}${FILENAME_SUFFIX}`; 
+    const fileName = `${def.prefix}${dateString}${FILENAME_SUFFIX}`;
     data[def.key] = parseCsvFromDrive(folder, fileName);
   });
-  
+
   // 2. コストマスタ取得 (最新)
   const costDef = FILE_DEFINITIONS.cost;
   data[costDef.key] = getLatestFileFromDrive(costDef.folderId, costDef.prefix, FILENAME_SUFFIX);
@@ -133,8 +186,8 @@ function getDataForDate(dateString) {
   const timeeDateStr = dateString.replace(/-/g, '');
   const timeeDef = FILE_DEFINITIONS.timee;
   const timeeFolder = DriveApp.getFolderById(timeeDef.folderId);
-  const timeeFileName = `${timeeDateStr}${timeeDef.suffix}`; 
-  
+  const timeeFileName = `${timeeDateStr}${timeeDef.suffix}`;
+
   const timeeResult = parseCsvFromDrive(timeeFolder, timeeFileName);
   data[timeeDef.key] = timeeResult;
 
@@ -154,7 +207,7 @@ function getAvailableDates() {
   const dates = new Set();
   const prefix = FILE_DEFINITIONS.workVolume.prefix;
   const suffix = FILENAME_SUFFIX;
-  
+
   const dateRegex = new RegExp(`^${prefix}(\\d{4}-\\d{2}-\\d{2})${suffix}$`);
 
   while (files.hasNext()) {
@@ -188,7 +241,7 @@ function getLatestFileFromDrive(folderId, prefix, suffix) {
       }
     }
   }
-  
+
   if (latestFile) {
     const parsedResult = parseCsvFromDrive(null, latestFile.getName(), latestFile);
     parsedResult.fileName = latestFile.getName();
@@ -212,11 +265,11 @@ function parseCsvFromDrive(folder, fileName, fileObject = null) {
       }
       file = files.next();
     }
-    
-    const csvString = file.getBlob().getDataAsString('UTF-8'); 
+
+    const csvString = file.getBlob().getDataAsString('UTF-8');
     const cleanCsvString = csvString.replace(/^\uFEFF/, ''); // BOM除去
     const parsedData = Utilities.parseCsv(cleanCsvString);
-    
+
     if (!parsedData || parsedData.length < 1) return { headers: [], data: [] };
 
     const headers = parsedData[0].map(h => String(h).trim());
@@ -244,7 +297,7 @@ function logAccess(e, functionName, spreadsheetId, sheetName) {
     const user = userEmail ? userEmail : Session.getEffectiveUser().getEmail();
     const params = (e && e.parameter) ? JSON.stringify(e.parameter) : '{}';
     const logData = [timestamp, user, functionName, params];
-    
+
     const sheet = SpreadsheetApp.openById(spreadsheetId).getSheetByName(sheetName);
     if (sheet) sheet.appendRow(logData);
   } catch (error) {

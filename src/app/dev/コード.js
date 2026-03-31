@@ -2,18 +2,82 @@
  * @fileoverview ダッシュボード閲覧専用GAS (Code.gs)
  */
 
-const LOG_SPREADSHEET_ID = '1FVty5A8B18DrJIzXhKde16-5pBcNsU5E4XYe8EeJjjA';
-const LOG_SHEET_NAME = 'アクセスログ';
+// NOTE: 本番稼働中のため、移行期間は「Script Properties 未設定でも動く」ように
+//       既存値へフォールバックします。プロパティ設定が完了したらフォールバックを削除してください。
+const SCRIPT_PROPERTY_KEYS = {
+  LOG_SPREADSHEET_ID: 'LOG_SPREADSHEET_ID',
+  LOG_SHEET_NAME: 'LOG_SHEET_NAME',
+
+  OUTPUT_DAILY_FOLDER_ID: 'OUTPUT_DAILY_FOLDER_ID',
+  OUTPUT_WEEKLY_FULL_FOLDER_ID: 'OUTPUT_WEEKLY_FULL_FOLDER_ID',
+  OUTPUT_MONTHLY_FULL_FOLDER_ID: 'OUTPUT_MONTHLY_FULL_FOLDER_ID',
+  OUTPUT_WEEKLY_RUNNING_FOLDER_ID: 'OUTPUT_WEEKLY_RUNNING_FOLDER_ID',
+  OUTPUT_MONTHLY_RUNNING_FOLDER_ID: 'OUTPUT_MONTHLY_RUNNING_FOLDER_ID',
+
+  INPUT_COST_FOLDER_ID: 'INPUT_COST_FOLDER_ID'
+};
+
+const LEGACY_CONFIG = {
+  [SCRIPT_PROPERTY_KEYS.LOG_SPREADSHEET_ID]: '1FVty5A8B18DrJIzXhKde16-5pBcNsU5E4XYe8EeJjjA',
+  [SCRIPT_PROPERTY_KEYS.LOG_SHEET_NAME]: 'アクセスログ',
+
+  [SCRIPT_PROPERTY_KEYS.OUTPUT_DAILY_FOLDER_ID]: '1VOUIgT45cVMiP4JYp8o7yiQkTQEwKl4K',
+  [SCRIPT_PROPERTY_KEYS.OUTPUT_WEEKLY_FULL_FOLDER_ID]: '1k3cJB1Rn4DwXIBg-DKhO80HiXxJKP4oG',
+  [SCRIPT_PROPERTY_KEYS.OUTPUT_MONTHLY_FULL_FOLDER_ID]: '17JzLXnliEYHSqpAbjVbwKThUYGzvVJu8',
+  [SCRIPT_PROPERTY_KEYS.OUTPUT_WEEKLY_RUNNING_FOLDER_ID]: '1LgUwCFQe1nl5_ktnpA7o6Q52B0Wh5rfk',
+  [SCRIPT_PROPERTY_KEYS.OUTPUT_MONTHLY_RUNNING_FOLDER_ID]: '1imvPQkJHRApG2Qk2VTVDy2teemLRahbc',
+
+  [SCRIPT_PROPERTY_KEYS.INPUT_COST_FOLDER_ID]: '17Z5k-DPJIR9nYMjPtRBq1PmBJonP9lLO'
+};
+
+function getScriptPropertyString_(key, fallback) {
+  const value = PropertiesService.getScriptProperties().getProperty(key);
+  if (value !== null && value !== '') return value;
+  if (fallback !== undefined && fallback !== null && fallback !== '') {
+    console.warn(`Script property "${key}" is not set. Falling back to legacy value.`);
+    return fallback;
+  }
+  throw new Error(`Missing required script property: ${key}`);
+}
+
+function setupScriptProperties() {
+  const props = PropertiesService.getScriptProperties();
+  const result = { set: [], skipped: [] };
+  Object.keys(LEGACY_CONFIG).forEach((key) => {
+    const current = props.getProperty(key);
+    if (current === null || current === '') {
+      props.setProperty(key, String(LEGACY_CONFIG[key]));
+      result.set.push(key);
+    } else {
+      result.skipped.push(key);
+    }
+  });
+  console.log(JSON.stringify(result));
+  return result;
+}
+
+function getLogSpreadsheetId_() {
+  return getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.LOG_SPREADSHEET_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.LOG_SPREADSHEET_ID]);
+}
+
+function getLogSheetName_() {
+  return getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.LOG_SHEET_NAME, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.LOG_SHEET_NAME]);
+}
 
 const FOLDERS = {
   output: {
-    daily:           '1VOUIgT45cVMiP4JYp8o7yiQkTQEwKl4K',
-    weekly_full:     '1k3cJB1Rn4DwXIBg-DKhO80HiXxJKP4oG',
-    monthly_full:    '17JzLXnliEYHSqpAbjVbwKThUYGzvVJu8',
-    weekly_running:  '1LgUwCFQe1nl5_ktnpA7o6Q52B0Wh5rfk',
-    monthly_running: '1imvPQkJHRApG2Qk2VTVDy2teemLRahbc'
+    daily:           getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.OUTPUT_DAILY_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.OUTPUT_DAILY_FOLDER_ID]),
+    weekly_full:     getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.OUTPUT_WEEKLY_FULL_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.OUTPUT_WEEKLY_FULL_FOLDER_ID]),
+    monthly_full:    getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.OUTPUT_MONTHLY_FULL_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.OUTPUT_MONTHLY_FULL_FOLDER_ID]),
+    weekly_running:  getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.OUTPUT_WEEKLY_RUNNING_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.OUTPUT_WEEKLY_RUNNING_FOLDER_ID]),
+    monthly_running: getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.OUTPUT_MONTHLY_RUNNING_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.OUTPUT_MONTHLY_RUNNING_FOLDER_ID])
   },
-  input: { cost: { prefix: 'YTCBIZ人的コスト_歴月収支有_抜粋版_', id: '17Z5k-DPJIR9nYMjPtRBq1PmBJonP9lLO' } }
+  input: {
+    cost: {
+      prefix: 'YTCBIZ人的コスト_歴月収支有_抜粋版_',
+      id: getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.INPUT_COST_FOLDER_ID, LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.INPUT_COST_FOLDER_ID])
+    }
+  }
 };
 
 const CSV_PREFIX = {
@@ -107,7 +171,7 @@ function parseCsvFromDrive(folder, fileName) {
 
 function logAccess(e, funcName) {
   try {
-    const sheet = SpreadsheetApp.openById(LOG_SPREADSHEET_ID).getSheetByName(LOG_SHEET_NAME);
+    const sheet = SpreadsheetApp.openById(getLogSpreadsheetId_()).getSheetByName(getLogSheetName_());
     if(sheet) sheet.appendRow([new Date(), Session.getActiveUser().getEmail() || Session.getEffectiveUser().getEmail(), funcName, (e&&e.parameter)?JSON.stringify(e.parameter):'{}']);
   } catch(err) {}
 }
