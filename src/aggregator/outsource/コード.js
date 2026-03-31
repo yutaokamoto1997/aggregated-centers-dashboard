@@ -7,8 +7,8 @@
 // NOTE: 稼働中のバッチのため、移行期間は「Script Properties 未設定でも動く」ように
 //       既存値へフォールバックします。プロパティ設定が完了したらフォールバックを削除してください。
 const SCRIPT_PROPERTY_KEYS = {
-  SOURCE_FOLDER_ID: 'OUTSOURCE_SOURCE_FOLDER_ID',
-  OUTPUT_FOLDER_ID: 'OUTSOURCE_OUTPUT_FOLDER_ID'
+  SOURCE_FOLDER_ID: 'SOURCE_FOLDER_ID',
+  OUTPUT_FOLDER_ID: 'OUTPUT_FOLDER_ID'
 };
 
 const LEGACY_CONFIG = {
