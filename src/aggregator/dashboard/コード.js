@@ -3,8 +3,6 @@
  * ※BOMに起因するパース不具合（合計と平均が同じになる問題）修正済み
  */
 
-// NOTE: 稼働中のバッチのため、移行期間は「Script Properties 未設定でも動く」ように
-//       既存値へフォールバックします。プロパティ設定が完了したらフォールバックを削除してください。
 const SCRIPT_PROPERTY_KEYS = {
   OUTPUT_DAILY_FOLDER_ID: 'OUTPUT_DAILY_FOLDER_ID',
   OUTPUT_WEEKLY_FULL_FOLDER_ID: 'OUTPUT_WEEKLY_FULL_FOLDER_ID',
@@ -19,105 +17,41 @@ const SCRIPT_PROPERTY_KEYS = {
   INPUT_TIMEE_FOLDER_ID: 'INPUT_TIMEE_FOLDER_ID'
 };
 
-const LEGACY_CONFIG = {
-  [SCRIPT_PROPERTY_KEYS.OUTPUT_DAILY_FOLDER_ID]: '1VOUIgT45cVMiP4JYp8o7yiQkTQEwKl4K',
-  [SCRIPT_PROPERTY_KEYS.OUTPUT_WEEKLY_FULL_FOLDER_ID]: '1k3cJB1Rn4DwXIBg-DKhO80HiXxJKP4oG',
-  [SCRIPT_PROPERTY_KEYS.OUTPUT_MONTHLY_FULL_FOLDER_ID]: '17JzLXnliEYHSqpAbjVbwKThUYGzvVJu8',
-  [SCRIPT_PROPERTY_KEYS.OUTPUT_WEEKLY_RUNNING_FOLDER_ID]: '1LgUwCFQe1nl5_ktnpA7o6Q52B0Wh5rfk',
-  [SCRIPT_PROPERTY_KEYS.OUTPUT_MONTHLY_RUNNING_FOLDER_ID]: '1imvPQkJHRApG2Qk2VTVDy2teemLRahbc',
-
-  [SCRIPT_PROPERTY_KEYS.INPUT_WORKVOLUME_FOLDER_ID]: '1llD95sgV5c7Cg_OiWOjTQz3NBb1gFyWO',
-  [SCRIPT_PROPERTY_KEYS.INPUT_MANPOWER_FOLDER_ID]: '1HIrPENYqUB7U1jJq9WXstsVuKYO51hqB',
-  [SCRIPT_PROPERTY_KEYS.INPUT_OUTSOURCING_FOLDER_ID]: '1g38uOUeEYEau4GMcXgG18hQwmIfOqeZP',
-  [SCRIPT_PROPERTY_KEYS.INPUT_COST_FOLDER_ID]: '17Z5k-DPJIR9nYMjPtRBq1PmBJonP9lLO',
-  [SCRIPT_PROPERTY_KEYS.INPUT_TIMEE_FOLDER_ID]: '1yl8nnhWL_U7kUYZEU4ewXN0Nr9I1sp8I'
-};
-
-function getScriptPropertyString_(key, fallback) {
+function getScriptPropertyString_(key) {
   const value = PropertiesService.getScriptProperties().getProperty(key);
   if (value !== null && value !== '') return value;
-  if (fallback !== undefined && fallback !== null && fallback !== '') {
-    console.warn(`Script property "${key}" is not set. Falling back to legacy value.`);
-    return fallback;
-  }
   throw new Error(`Missing required script property: ${key}`);
-}
-
-function setupScriptProperties() {
-  const props = PropertiesService.getScriptProperties();
-  const result = { set: [], skipped: [] };
-  Object.keys(LEGACY_CONFIG).forEach((key) => {
-    const current = props.getProperty(key);
-    if (current === null || current === '') {
-      props.setProperty(key, String(LEGACY_CONFIG[key]));
-      result.set.push(key);
-    } else {
-      result.skipped.push(key);
-    }
-  });
-  console.log(JSON.stringify(result));
-  return result;
 }
 
 const FOLDERS = {
   output: {
-    daily: getScriptPropertyString_(
-      SCRIPT_PROPERTY_KEYS.OUTPUT_DAILY_FOLDER_ID,
-      LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.OUTPUT_DAILY_FOLDER_ID]
-    ),
-    weekly_full: getScriptPropertyString_(
-      SCRIPT_PROPERTY_KEYS.OUTPUT_WEEKLY_FULL_FOLDER_ID,
-      LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.OUTPUT_WEEKLY_FULL_FOLDER_ID]
-    ),
-    monthly_full: getScriptPropertyString_(
-      SCRIPT_PROPERTY_KEYS.OUTPUT_MONTHLY_FULL_FOLDER_ID,
-      LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.OUTPUT_MONTHLY_FULL_FOLDER_ID]
-    ),
-    weekly_running: getScriptPropertyString_(
-      SCRIPT_PROPERTY_KEYS.OUTPUT_WEEKLY_RUNNING_FOLDER_ID,
-      LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.OUTPUT_WEEKLY_RUNNING_FOLDER_ID]
-    ),
-    monthly_running: getScriptPropertyString_(
-      SCRIPT_PROPERTY_KEYS.OUTPUT_MONTHLY_RUNNING_FOLDER_ID,
-      LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.OUTPUT_MONTHLY_RUNNING_FOLDER_ID]
-    )
+    daily: getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.OUTPUT_DAILY_FOLDER_ID),
+    weekly_full: getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.OUTPUT_WEEKLY_FULL_FOLDER_ID),
+    monthly_full: getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.OUTPUT_MONTHLY_FULL_FOLDER_ID),
+    weekly_running: getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.OUTPUT_WEEKLY_RUNNING_FOLDER_ID),
+    monthly_running: getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.OUTPUT_MONTHLY_RUNNING_FOLDER_ID)
   },
   input: {
     workVolume: {
       prefix: '集約拠点_作業個数_時間帯別_',
-      id: getScriptPropertyString_(
-        SCRIPT_PROPERTY_KEYS.INPUT_WORKVOLUME_FOLDER_ID,
-        LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.INPUT_WORKVOLUME_FOLDER_ID]
-      )
+      id: getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.INPUT_WORKVOLUME_FOLDER_ID)
     },
     manpower: {
       prefix: '集約拠点_人員数_投入時間_時間帯別_',
-      id: getScriptPropertyString_(
-        SCRIPT_PROPERTY_KEYS.INPUT_MANPOWER_FOLDER_ID,
-        LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.INPUT_MANPOWER_FOLDER_ID]
-      )
+      id: getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.INPUT_MANPOWER_FOLDER_ID)
     },
     outsourcing: {
       prefix: '集約拠点_外部リソース_',
-      id: getScriptPropertyString_(
-        SCRIPT_PROPERTY_KEYS.INPUT_OUTSOURCING_FOLDER_ID,
-        LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.INPUT_OUTSOURCING_FOLDER_ID]
-      )
+      id: getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.INPUT_OUTSOURCING_FOLDER_ID)
     },
     cost: {
       prefix: 'YTCBIZ人的コスト_歴月収支有_抜粋版_',
-      id: getScriptPropertyString_(
-        SCRIPT_PROPERTY_KEYS.INPUT_COST_FOLDER_ID,
-        LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.INPUT_COST_FOLDER_ID]
-      )
+      id: getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.INPUT_COST_FOLDER_ID)
     },
     timee: {
       prefix: '',
       suffix: '_タイミー実績.csv',
-      id: getScriptPropertyString_(
-        SCRIPT_PROPERTY_KEYS.INPUT_TIMEE_FOLDER_ID,
-        LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.INPUT_TIMEE_FOLDER_ID]
-      )
+      id: getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.INPUT_TIMEE_FOLDER_ID)
     }
   }
 };

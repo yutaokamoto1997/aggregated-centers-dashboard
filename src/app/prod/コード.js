@@ -3,8 +3,6 @@
  */
 
 // --- 設定エリア ---
-// NOTE: 本番稼働中のため、移行期間は「Script Properties 未設定でも動く」ように
-//       既存値へフォールバックします。プロパティ設定が完了したらフォールバックを削除してください。
 const SCRIPT_PROPERTY_KEYS = {
   LOG_SPREADSHEET_ID: 'LOG_SPREADSHEET_ID',
   LOG_SHEET_NAME: 'LOG_SHEET_NAME',
@@ -15,54 +13,18 @@ const SCRIPT_PROPERTY_KEYS = {
   INPUT_TIMEE_FOLDER_ID: 'INPUT_TIMEE_FOLDER_ID'
 };
 
-const LEGACY_CONFIG = {
-  [SCRIPT_PROPERTY_KEYS.LOG_SPREADSHEET_ID]: '1FVty5A8B18DrJIzXhKde16-5pBcNsU5E4XYe8EeJjjA',
-  [SCRIPT_PROPERTY_KEYS.LOG_SHEET_NAME]: 'アクセスログ',
-  [SCRIPT_PROPERTY_KEYS.INPUT_WORKVOLUME_FOLDER_ID]: '1llD95sgV5c7Cg_OiWOjTQz3NBb1gFyWO',
-  [SCRIPT_PROPERTY_KEYS.INPUT_MANPOWER_FOLDER_ID]: '1HIrPENYqUB7U1jJq9WXstsVuKYO51hqB',
-  [SCRIPT_PROPERTY_KEYS.INPUT_OUTSOURCING_FOLDER_ID]: '1g38uOUeEYEau4GMcXgG18hQwmIfOqeZP',
-  [SCRIPT_PROPERTY_KEYS.INPUT_COST_FOLDER_ID]: '17Z5k-DPJIR9nYMjPtRBq1PmBJonP9lLO',
-  [SCRIPT_PROPERTY_KEYS.INPUT_TIMEE_FOLDER_ID]: '1yl8nnhWL_U7kUYZEU4ewXN0Nr9I1sp8I'
-};
-
-function getScriptPropertyString_(key, fallback) {
+function getScriptPropertyString_(key) {
   const value = PropertiesService.getScriptProperties().getProperty(key);
   if (value !== null && value !== '') return value;
-  if (fallback !== undefined && fallback !== null && fallback !== '') {
-    console.warn(`Script property "${key}" is not set. Falling back to legacy value.`);
-    return fallback;
-  }
   throw new Error(`Missing required script property: ${key}`);
 }
 
-function setupScriptProperties() {
-  const props = PropertiesService.getScriptProperties();
-  const result = { set: [], skipped: [] };
-  Object.keys(LEGACY_CONFIG).forEach((key) => {
-    const current = props.getProperty(key);
-    if (current === null || current === '') {
-      props.setProperty(key, String(LEGACY_CONFIG[key]));
-      result.set.push(key);
-    } else {
-      result.skipped.push(key);
-    }
-  });
-  console.log(JSON.stringify(result));
-  return result;
-}
-
 function getLogSpreadsheetId_() {
-  return getScriptPropertyString_(
-    SCRIPT_PROPERTY_KEYS.LOG_SPREADSHEET_ID,
-    LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.LOG_SPREADSHEET_ID]
-  );
+  return getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.LOG_SPREADSHEET_ID);
 }
 
 function getLogSheetName_() {
-  return getScriptPropertyString_(
-    SCRIPT_PROPERTY_KEYS.LOG_SHEET_NAME,
-    LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.LOG_SHEET_NAME]
-  );
+  return getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.LOG_SHEET_NAME);
 }
 
 // 各種データファイルの定義
@@ -70,42 +32,27 @@ const FILE_DEFINITIONS = {
   workVolume: {
     prefix: '集約拠点_作業個数_時間帯別_',
     key: 'workVolumeData',
-    folderId: getScriptPropertyString_(
-      SCRIPT_PROPERTY_KEYS.INPUT_WORKVOLUME_FOLDER_ID,
-      LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.INPUT_WORKVOLUME_FOLDER_ID]
-    )
+    folderId: getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.INPUT_WORKVOLUME_FOLDER_ID)
   },
   manpower: {
     prefix: '集約拠点_人員数_投入時間_時間帯別_',
     key: 'manpowerData',
-    folderId: getScriptPropertyString_(
-      SCRIPT_PROPERTY_KEYS.INPUT_MANPOWER_FOLDER_ID,
-      LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.INPUT_MANPOWER_FOLDER_ID]
-    )
+    folderId: getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.INPUT_MANPOWER_FOLDER_ID)
   },
   // 【追加】外部リソース（派遣・委託）用の中間データ設定
   outsourcing: {
     prefix: '集約拠点_外部リソース_',
     key: 'outsourcingData',
-    folderId: getScriptPropertyString_(
-      SCRIPT_PROPERTY_KEYS.INPUT_OUTSOURCING_FOLDER_ID,
-      LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.INPUT_OUTSOURCING_FOLDER_ID]
-    )
+    folderId: getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.INPUT_OUTSOURCING_FOLDER_ID)
   },
   cost: {
     prefix: 'YTCBIZ人的コスト_歴月収支有_抜粋版_',
     key: 'costData',
-    folderId: getScriptPropertyString_(
-      SCRIPT_PROPERTY_KEYS.INPUT_COST_FOLDER_ID,
-      LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.INPUT_COST_FOLDER_ID]
-    )
+    folderId: getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.INPUT_COST_FOLDER_ID)
   },
   timee: {
     // Pythonで生成されたファイル (yyyymmdd_タイミー実績.csv)
-    folderId: getScriptPropertyString_(
-      SCRIPT_PROPERTY_KEYS.INPUT_TIMEE_FOLDER_ID,
-      LEGACY_CONFIG[SCRIPT_PROPERTY_KEYS.INPUT_TIMEE_FOLDER_ID]
-    ),
+    folderId: getScriptPropertyString_(SCRIPT_PROPERTY_KEYS.INPUT_TIMEE_FOLDER_ID),
     key: 'timeeData',
     suffix: '_タイミー実績.csv'
   }
