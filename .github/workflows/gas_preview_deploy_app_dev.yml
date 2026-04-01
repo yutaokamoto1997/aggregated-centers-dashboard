@@ -1,0 +1,102 @@
+name: GAS Preview Deploy (app/dev)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag, or SHA to deploy (e.g. feature/xxx)
+        required: true
+        default: main
+      developer:
+        description: Which preview URL to update
+        required: true
+        type: choice
+        options:
+          - kagawa
+          - okamoto
+      description:
+        description: Deployment description (optional)
+        required: false
+        default: ""
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+
+    # Prevent collisions with main dev deploy and other preview runs.
+    concurrency:
+      group: gas-app-dev
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Write clasp auth
+        shell: bash
+        env:
+          CLASPRC_JSON_B64: ${{ secrets.CLASPRC_JSON_B64 }}
+        run: |
+          mkdir -p "$HOME"
+          echo "$CLASPRC_JSON_B64" | base64 --decode > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Select deployment id
+        shell: bash
+        env:
+          DEVELOPER: ${{ inputs.developer }}
+          DEPLOYMENT_ID_KAGAWA: ${{ secrets.GAS_DEPLOYMENT_ID_APP_DEV_KAGAWA }}
+          DEPLOYMENT_ID_OKAMOTO: ${{ secrets.GAS_DEPLOYMENT_ID_APP_DEV_OKAMOTO }}
+        run: |
+          case "$DEVELOPER" in
+            kagawa)
+              echo "DEPLOYMENT_ID=$DEPLOYMENT_ID_KAGAWA" >> "$GITHUB_ENV"
+              ;;
+            okamoto)
+              echo "DEPLOYMENT_ID=$DEPLOYMENT_ID_OKAMOTO" >> "$GITHUB_ENV"
+              ;;
+            *)
+              echo "Unknown developer: $DEVELOPER" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Push + Deploy app/dev (preview)
+        shell: bash
+        env:
+          SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID_APP_DEV }}
+          INPUT_DESCRIPTION: ${{ github.event.inputs.description }}
+        run: |
+          if [ -z "$DEPLOYMENT_ID" ]; then
+            echo "DEPLOYMENT_ID is empty (missing secret?)" >&2
+            exit 1
+          fi
+
+          cd src/app/dev
+          cat > .clasp.json <<EOF
+          {"scriptId":"${SCRIPT_ID}","rootDir":"./"}
+          EOF
+
+          npx -y @google/clasp@latest push --force
+
+          DESC="$INPUT_DESCRIPTION"
+          if [ -z "$DESC" ]; then
+            DESC="preview deploy developer=${{ inputs.developer }} ref=${{ inputs.ref }} sha=${GITHUB_SHA}"
+          fi
+
+          npx -y @google/clasp@latest update-deployment "$DEPLOYMENT_ID" -d "$DESC"
+
+      - name: Summary
+        run: |
+          echo "Preview deploy completed."
+          echo "developer: ${{ inputs.developer }}"
+          echo "ref: ${{ inputs.ref }}"
