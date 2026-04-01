@@ -1,15 +1,102 @@
-# GAS開発・運用マニュアル：clasp & GitHub 連携編
+# GAS開発・運用マニュアル（CI/CD運用）
 
-本ドキュメントは、Google Apps Script（GAS）をローカル環境で開発し、claspおよびGitHubを用いてバージョン管理を行うための標準運用フローをまとめたものです。
+本ドキュメントは、Google Apps Script（GAS）をGitHubで管理し、GitHub Actions（CI/CD）でGASへ反映する運用の「日々やること」を簡潔にまとめたものです。
 
-## 1. 基本的な考え方：3つの状態
+※環境構築（clasp認証、Secrets登録など）の手順は別途まとめる前提とし、ここでは割愛します。
+
+---
+
+## 日々の運用（基本：PR → mainマージで自動反映）
+
+### 1) 変更作業（ローカル）
+
+```bash
+git switch main
+git pull
+git switch -c feature/xxxx
+```
+
+- コード修正 → ローカルで静的チェック
+
+```bash
+npm run lint
+npm run format
+```
+
+### 2) PR作成（GitHub）
+
+```bash
+git add -A
+git commit -m "feat: ..."
+git push -u origin feature/xxxx
+```
+
+- PRを作成し、CI（lint / format:check）が緑になることを確認
+- CIが落ちたら、ローカルで直してpush（PRに自動で追記されます）
+
+### 3) 検証（Preview Deploy / app/dev）
+
+mainマージ前に「手元（ブランチ）の変更」を検証URLで確認したい場合は、ローカルから `clasp push` はせず、GitHub Actions の Preview Deploy を使います（複数人開発での衝突回避）。
+
+- GitHub → Actions → `GAS Preview Deploy (app/dev)` → Run workflow
+  - `ref`: 検証したいブランチ名（例: `feature/xxxx`）
+  - `developer`: 自分の枠（例: `kagawa` / `okamoto`）
+  - `description`: 任意
+
+実行後、自分のPreview用URLで動作確認します。
+
+### 4) mainへマージ（自動でGASへ反映）
+
+main にマージされると、GitHub Actions が自動で以下を行います。
+
+- dev: `push + deploy`（検証URLが常に最新になる）
+- バッチ（aggregator）: `push`
+
+※この運用が基本なので、通常は手元から `clasp push` を打つ必要はありません。
+
+---
+
+## 本番リリース（手動：GitHub Actionsを実行）
+
+本番（prod）は誤デプロイ防止のため、GitHub Actions の手動実行でデプロイします。
+
+- GitHub → Actions → 本番デプロイ用Workflow → Run workflow
+- 実行後、完了ログを確認してURLの挙動を確認
+
+---
+
+## 例外対応（必要なときだけ）
+
+### 1) どうしてもローカルから即時反映したい
+
+原則は Preview Deploy を使用してください。
+
+やむを得ずローカルから `clasp push` する場合は、app/dev に限定し、他メンバーの作業と被らないタイミングで実行してください（衝突すると他人の検証が壊れます）。
+
+```bash
+cd ./src/app/dev
+clasp push
+```
+
+### 2) GASエディタで直接編集してしまった
+
+原則としてブラウザでの直接編集は禁止です。万が一発生した場合は、差分を回収してPRにします。
+
+```bash
+cd ./src/app/dev
+clasp pull
+```
+
+---
+
+## 参考：GASのコード管理における3つの状態
 
 GASのコード管理には、以下の3つの状態があることを理解してください。
 ローカル（PC）: VS Code等で編集中の最新コード。
 最新のコード（HEAD）: push した直後の、ブラウザ（GASエディタ）で見える状態。
 デプロイ（本番環境）: 特定の「バージョン」を固定し、ユーザーに公開している状態。
 
-## 2. 日常の作業フロー（コードの変更と反映）
+## 参考：手動での作業フロー（clasp）
 
 ### 2.1. 作業開始時
 
@@ -58,7 +145,7 @@ git commit -m "feat: 〇〇拠点の集計ロジックを追加"
 git push origin feature/作業ブランチ名
 ```
 
-## 3. リリース作業（バージョンとデプロイの発行）
+### 3. リリース作業（バージョンとデプロイの発行）
 
 検証環境でのテストが完了し、本番環境へ反映する際の手順です。
 3.1. バージョンの発行（スナップショットの作成）
@@ -69,11 +156,11 @@ cd ./src/app/prod
 clasp version "20240501_〇〇機能リリース版"
 ```
 
-### 3.2. デプロイの実行（本番公開）
+#### 3.2. デプロイの実行（本番公開）
 
 特定のデプロイID（本番用URL）の中身を、最新のバージョンに差し替えます。
 
-#### 本番デプロイIDを指定して上書き更新
+##### 本番デプロイIDを指定して上書き更新
 
 ```bash
 cd ./src/app/prod
@@ -82,11 +169,11 @@ clasp deploy -i [デプロイID] -d "説明文"
 
 メリット: URLを変更せずに、中身のロジックだけを最新化できます。
 
-## 4. ブラウザ（GASエディタ）で編集した場合の対処
+### 4. ブラウザ（GASエディタ）で編集した場合の対処
 
 原則としてブラウザでの直接編集は禁止ですが、万が一編集が発生した場合は以下の手順で同期を行います。
 
-### 4.1. ブラウザの変更を「ローカル」に取り込む場合
+#### 4.1. ブラウザの変更を「ローカル」に取り込む場合
 
 ブラウザ側が「正しい（最新）」状態であるとき。
 例：dev を取り込む場合
@@ -105,7 +192,7 @@ clasp pull
 
 実行後、Gitの差分として認識されます。内容を確認し git commit してください。
 
-### 4.2. ローカルで「ブラウザの変更」を上書きする場合
+#### 4.2. ローカルで「ブラウザの変更」を上書きする場合
 
 ブラウザでの編集が誤りで、ローカルの状態に戻したいとき。
 例：dev をブラウザへ上書きする場合
@@ -151,3 +238,13 @@ clasp push
 npm run lint
 npm run format
 ```
+
+---
+
+## CI/CD（GitHub Actions）
+
+- PR: `npm run lint` / `npm run format:check`
+- mainマージ: 自動で dev を `push + deploy`、バッチは `push`
+- 本番: Actionsの手動実行でデプロイ（prod）
+
+※Secretsやclasp認証などの準備手順は別途ドキュメントにまとめます。
