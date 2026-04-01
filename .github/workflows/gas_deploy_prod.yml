@@ -1,0 +1,59 @@
+name: GAS Deploy (prod)
+
+on:
+  workflow_dispatch:
+    inputs:
+      description:
+        description: Deployment description (optional)
+        required: false
+        default: ""
+
+concurrency:
+  group: gas-deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Write clasp auth
+        shell: bash
+        env:
+          CLASPRC_JSON_B64: ${{ secrets.CLASPRC_JSON_B64 }}
+        run: |
+          mkdir -p "$HOME"
+          echo "$CLASPRC_JSON_B64" | base64 --decode > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Push + Deploy app/prod
+        shell: bash
+        env:
+          SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID_APP_PROD }}
+          DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID_APP_PROD }}
+          INPUT_DESCRIPTION: ${{ github.event.inputs.description }}
+        run: |
+          cd src/app/prod
+          cat > .clasp.json <<EOF
+          {"scriptId":"${SCRIPT_ID}","rootDir":"./"}
+          EOF
+
+          npx -y @google/clasp@latest push --force
+
+          DESC="${INPUT_DESCRIPTION}"
+          if [ -z "$DESC" ]; then
+            DESC="prod deploy ${GITHUB_SHA}"
+          fi
+
+          # clasp 3.x: update an existing deployment (creates a new version implicitly)
+          npx -y @google/clasp@latest update-deployment "$DEPLOYMENT_ID" -d "$DESC"
