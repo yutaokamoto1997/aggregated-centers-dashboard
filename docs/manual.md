@@ -2,7 +2,9 @@
 
 本ドキュメントは、Google Apps Script（GAS）をGitHubで管理し、GitHub Actions（CI/CD）でGASへ反映する運用の「日々やること」を簡潔にまとめたものです。
 
-※環境構築（clasp認証、Secrets登録など）の手順は別途まとめる前提とし、ここでは割愛します。
+※環境構築（clasp認証、preview用GASの準備など）は別ドキュメントにまとめています。
+
+- 環境構築手順: [setup.md](setup.md)
 
 ---
 
@@ -23,7 +25,23 @@ npm run lint
 npm run format
 ```
 
-### 2) PR作成（GitHub）
+### 2) 検証（個人のpreview環境）
+
+PRを作る前に「手元（ブランチ）の変更」を検証URLで確認します。
+
+開発者ごとに分離された preview 用GAS（別scriptId）へローカルから `clasp push` して確認します。
+
+```bash
+cd ./src/app/dev
+clasp push
+```
+
+注意:
+
+- `clasp push` は **`.clasp.json` に設定されているscriptIdへ上書き**します。
+- 共有の検証環境（mainマージで自動更新されるdev）に誤ってpushしないよう、push前に `.clasp.json` のscriptIdを必ず確認してください。
+
+### 3) PR作成（GitHub）
 
 ```bash
 git add -A
@@ -34,18 +52,7 @@ git push -u origin feature/xxxx
 - PRを作成し、CI（lint / format:check）が緑になることを確認
 - CIが落ちたら、ローカルで直してpush（PRに自動で追記されます）
 
-### 3) 検証（Preview Deploy / app/dev）
-
-mainマージ前に「手元（ブランチ）の変更」を検証URLで確認したい場合は、ローカルから `clasp push` はせず、GitHub Actions の Preview Deploy を使います（複数人開発での衝突回避）。
-
-- GitHub → Actions → `GAS Preview Deploy (app/dev)` → Run workflow
-  - `ref`: 検証したいブランチ名（例: `feature/xxxx`）
-  - `developer`: 自分の枠（例: `kagawa` / `okamoto`）
-  - `description`: 任意
-
-実行後、自分のPreview用URLで動作確認します。
-
-### 4) mainへマージ（自動でGASへ反映）
+### 4) mainへマージ（自動で共有の検証環境へ反映）
 
 main にマージされると、GitHub Actions が自動で以下を行います。
 
@@ -67,16 +74,11 @@ main にマージされると、GitHub Actions が自動で以下を行います
 
 ## 例外対応（必要なときだけ）
 
-### 1) どうしてもローカルから即時反映したい
+### 1) 共有の検証環境（main反映）をすぐに更新したい
 
-原則は Preview Deploy を使用してください。
+原則として、共有の検証環境（dev）は main マージ時のGitHub Actionsで自動更新します。
 
-やむを得ずローカルから `clasp push` する場合は、app/dev に限定し、他メンバーの作業と被らないタイミングで実行してください（衝突すると他人の検証が壊れます）。
-
-```bash
-cd ./src/app/dev
-clasp push
-```
+どうしても手元から更新する必要がある場合は、関係者に共有した上で実施してください（他人の検証が壊れます）。
 
 ### 2) GASエディタで直接編集してしまった
 
