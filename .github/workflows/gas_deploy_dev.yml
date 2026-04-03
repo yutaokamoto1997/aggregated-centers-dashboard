@@ -1,0 +1,94 @@
+name: GAS Push (main)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  app-dev:
+    runs-on: ubuntu-latest
+
+    concurrency:
+      group: gas-deploy-dev
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Write clasp auth
+        shell: bash
+        env:
+          CLASPRC_JSON_B64: ${{ secrets.CLASPRC_JSON_B64 }}
+        run: |
+          mkdir -p "$HOME"
+          echo "$CLASPRC_JSON_B64" | base64 --decode > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Push + Deploy app/dev
+        shell: bash
+        env:
+          SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID_APP_DEV }}
+          DEPLOYMENT_ID: ${{ secrets.GAS_DEPLOYMENT_ID_APP_DEV }}
+        run: |
+          cd src/app/dev
+          cat > .clasp.json <<EOF
+          {"scriptId":"${SCRIPT_ID}","rootDir":"./"}
+          EOF
+          npx -y @google/clasp@latest push --force
+
+          # Keep shared dev (verification) URL always up-to-date
+          npx -y @google/clasp@latest update-deployment "$DEPLOYMENT_ID" -d "dev deploy ${GITHUB_SHA}"
+
+  aggregators:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Write clasp auth
+        shell: bash
+        env:
+          CLASPRC_JSON_B64: ${{ secrets.CLASPRC_JSON_B64 }}
+        run: |
+          mkdir -p "$HOME"
+          echo "$CLASPRC_JSON_B64" | base64 --decode > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Push aggregator/dashboard
+        shell: bash
+        env:
+          SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID_AGGREGATOR_DASHBOARD }}
+        run: |
+          cd src/aggregator/dashboard
+          cat > .clasp.json <<EOF
+          {"scriptId":"${SCRIPT_ID}","rootDir":"./"}
+          EOF
+          npx -y @google/clasp@latest push --force
+
+      - name: Push aggregator/outsource
+        shell: bash
+        env:
+          SCRIPT_ID: ${{ secrets.GAS_SCRIPT_ID_AGGREGATOR_OUTSOURCE }}
+        run: |
+          cd src/aggregator/outsource
+          cat > .clasp.json <<EOF
+          {"scriptId":"${SCRIPT_ID}","rootDir":"./"}
+          EOF
+          npx -y @google/clasp@latest push --force
