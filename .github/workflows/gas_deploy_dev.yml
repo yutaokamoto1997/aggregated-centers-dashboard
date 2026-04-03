@@ -9,9 +9,8 @@ jobs:
   app-dev:
     runs-on: ubuntu-latest
 
-    # Prevent collisions for app/dev pushes/deploys.
     concurrency:
-      group: gas-app-dev
+      group: gas-deploy-dev
       cancel-in-progress: false
 
     steps:
